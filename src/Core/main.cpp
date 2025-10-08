@@ -1,5 +1,7 @@
 #include "KamataEngine.h"
 #include <Windows.h>
+#include "Scene/GameScene.h"
+
 using namespace KamataEngine;
 
 // Windowsアプリでのエントリーポイント(main関数)
@@ -13,7 +15,10 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
 	/*********************************************************
 	 *シーンの初期化
-	*********************************************************
+	*********************************************************/
+
+	std::unique_ptr<GameScene> gameScene;
+	gameScene->Initialize();
 
 	/*********************************************************
 	 *メインループ
@@ -28,6 +33,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		imguiManager->Begin();
 
 		// 2. 現在シーンの更新
+		gameScene->Update();
 
 		imguiManager->End();
 
@@ -35,13 +41,14 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		dxCommon->PreDraw();
 
 		// 3. 現在シーンの描画
+		gameScene->Draw();
 
 		imguiManager->Draw();
 		dxCommon->PostDraw();
 	}
 
 	/*********************************************************
-	 *解放処理
+	*解放処理
 	*********************************************************/
 
 	return 0;
