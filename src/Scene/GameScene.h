@@ -1,5 +1,8 @@
 #pragma once
-#include "KamataEngine.h" //
+#include "KamataEngine.h"
+#include <memory>
+
+class Player;
 
 // ゲームシーン
 class GameScene { //
@@ -12,4 +15,13 @@ public:
 
 	// 描画
 	void Draw(); // [cite: 5]
+
+	// デストラクタの宣言を追加
+	~GameScene();
+
+private:
+	// カメラ
+	std::unique_ptr<KamataEngine::Camera> camera_;
+
+	std::unique_ptr<Player> player_;
 };
