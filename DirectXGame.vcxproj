@@ -106,10 +106,6 @@
     </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src\Scene\GameScene.cpp" />
-    <ClCompile Include="src\Core\main.cpp" />
-  </ItemGroup>
-  <ItemGroup>
     <FxCompile Include="Resources\shaders\TerrainPS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
@@ -185,7 +181,41 @@
     <None Include="Resources\shaders\Sprite.hlsli" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BaseScene.h" />
+    <ClInclude Include="CameraController.h" />
+    <ClInclude Include="Collision.h" />
+    <ClInclude Include="DeathParticles.h" />
+    <ClInclude Include="Easing.h" />
+    <ClInclude Include="Enemy.h" />
+    <ClInclude Include="Fade.h" />
+    <ClInclude Include="GameScene.h" />
+    <ClInclude Include="Goal.h" />
+    <ClInclude Include="MapChipField.h" />
+    <ClInclude Include="Player.h" />
+    <ClInclude Include="Skydome.h" />
+    <ClInclude Include="src\Camera\CameraController.h" />
+    <ClInclude Include="src\Player\Player.h" />
     <ClInclude Include="src\Scene\GameScene.h" />
+    <ClInclude Include="StageSelectScene.h" />
+    <ClInclude Include="TitleScene.h" />
+    <ClInclude Include="TransformUpdater.h" />
+    <ClInclude Include="VectorMath.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="CameraController.cpp" />
+    <ClCompile Include="DeathParticles.cpp" />
+    <ClCompile Include="Easing.cpp" />
+    <ClCompile Include="Enemy.cpp" />
+    <ClCompile Include="Fade.cpp" />
+    <ClCompile Include="GameScene.cpp" />
+    <ClCompile Include="Goal.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="MapChipField.cpp" />
+    <ClCompile Include="Player.cpp" />
+    <ClCompile Include="Skydome.cpp" />
+    <ClCompile Include="StageSelectScene.cpp" />
+    <ClCompile Include="TitleScene.cpp" />
+    <ClCompile Include="TransformUpdater.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
