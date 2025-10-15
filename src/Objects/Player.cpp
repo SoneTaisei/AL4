@@ -1,13 +1,136 @@
-#include "Player.h"
-#include "Easing.h"
-#include "Enemy.h"
-#include "MapChipField.h"
-#include "TransformUpdater.h"
+#include "Objects/Player.h"
+#include "Objects/Enemy.h"
+#include "System/MapChipField.h"
+#include "Utils/Easing.h"
+#include "Utils/TransformUpdater.h"
 #include <algorithm>
 #include <array>
 #include <numbers>
 
 using namespace KamataEngine;
+
+
+// ★★★ ベクトルの長さを計算するヘルパー関数を追加 ★★★
+float Length(const KamataEngine::Vector3& v) { return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z); }
+
+void Player::Attack(const KamataEngine::Vector3& gravityVector) {
+	// 攻撃中に再度呼び出された場合は何もしない
+	if (isAttacking_) {
+		return;
+	}
+	isAttacking_ = true;
+	isAttackBlocked_ = false;
+	attackTimer_ = kAttackDuration;
+	attackStartPosition_ = worldTransform_.translation_;
+
+	// 攻撃開始時に、既存の左右移動速度をゼロにする
+	// (重力による落下などは維持するため、上下方向の速度は保持する)
+	Vector3 moveRight = {0, 0, 0};
+	if (gravityVector.y != 0) { // 重力がY軸方向
+		moveRight = {1.0f, 0.0f, 0.0f};
+		if (gravityVector.y > 0) {
+			moveRight.x *= -1.0f;
+		}
+	} else if (gravityVector.x != 0) { // 重力がX軸方向
+		moveRight = {0.0f, -1.0f, 0.0f};
+		if (gravityVector.x > 0) {
+			moveRight.y *= -1.0f;
+		}
+	}
+
+	// 進行方向の速度成分を抽出し、それをvelocity_から引くことで進行方向の速度を0にする
+	float dot = velocity_.x * moveRight.x + velocity_.y * moveRight.y;
+	Vector3 runVelocity = moveRight * dot;
+	Vector3 otherVelocity = velocity_ - runVelocity;
+	velocity_ = otherVelocity;
+}
+
+bool Player::MoveAndCollide(const KamataEngine::Vector3& move, const KamataEngine::Vector3& gravityVector) {
+	bool collided = false;
+
+	// 重力方向に応じて、衝突判定の軸を入れ替える
+	if (gravityVector.y != 0) { // 重力が上下方向の場合
+		// X軸（水平）の衝突判定と移動
+		{
+			CollisionMapInfo infoX{};
+			infoX.move = {move.x, 0.0f, 0.0f};
+			MapCollisionRight(infoX);
+			MapCollisionLeft(infoX);
+			if (infoX.isWallContact) {
+				velocity_.x = 0.0f;
+				collided = true;
+			}
+			worldTransform_.translation_.x += infoX.move.x;
+		}
+
+		// Y軸（垂直）の衝突判定と移動
+		{
+			CollisionMapInfo infoY{};
+			infoY.move = {0.0f, move.y, 0.0f};
+			MapCollisionUp(infoY);
+			MapCollisionDown(infoY);
+			worldTransform_.translation_.y += infoY.move.y;
+
+			bool landedOnFloor = (gravityVector.y < 0 && infoY.isLanding);
+			bool landedOnCeiling = (gravityVector.y > 0 && infoY.isCeilingHit);
+
+			if (landedOnFloor || landedOnCeiling) {
+				onGround_ = true;
+				velocity_.y = 0.0f;
+				collided = true;
+			} else {
+				onGround_ = false;
+			}
+
+			if ((gravityVector.y < 0 && infoY.isCeilingHit) || (gravityVector.y > 0 && infoY.isLanding)) {
+				velocity_.y = 0.0f;
+				collided = true;
+			}
+		}
+	} else if (gravityVector.x != 0) { // 重力が左右方向の場合
+		// Y軸（プレイヤーにとっての水平）の衝突判定と移動
+		{
+			if (std::abs(move.y) > 0.001f) {
+				CollisionMapInfo infoY{};
+				infoY.move = {0.0f, move.y, 0.0f};
+				MapCollisionUp(infoY);
+				MapCollisionDown(infoY);
+				if (infoY.isCeilingHit || infoY.isLanding) {
+					velocity_.y = 0.0f;
+					collided = true;
+				}
+				worldTransform_.translation_.y += infoY.move.y;
+			}
+		}
+
+		// X軸（プレイヤーにとっての垂直）の衝突判定と移動
+		{
+			CollisionMapInfo infoX{};
+			infoX.move = {move.x, 0.0f, 0.0f};
+			MapCollisionRight(infoX);
+			MapCollisionLeft(infoX);
+			worldTransform_.translation_.x += infoX.move.x;
+
+			bool isLandingX = (gravityVector.x > 0 && infoX.isWallContact && velocity_.x >= 0) || (gravityVector.x < 0 && infoX.isWallContact && velocity_.x <= 0);
+			bool isCeilingHitX = (gravityVector.x > 0 && infoX.isWallContact && velocity_.x < 0) || (gravityVector.x < 0 && infoX.isWallContact && velocity_.x > 0);
+
+			if (isLandingX) {
+				onGround_ = true;
+				velocity_.x = 0.0f;
+				collided = true;
+			} else {
+				if (!isCeilingHitX) {
+					onGround_ = false;
+				}
+			}
+			if (isCeilingHitX) {
+				velocity_.x = 0.0f;
+				collided = true;
+			}
+		}
+	}
+	return collided;
+}
 
 // Move関数の実装をここに追加
 void Player::Move(const KamataEngine::Vector3& gravityVector) {
@@ -21,7 +144,7 @@ void Player::Move(const KamataEngine::Vector3& gravityVector) {
 		moveUp = {0.0f, 1.0f, 0.0f};
 		if (gravityVector.y > 0) {
 			moveRight.x *= -1.0f;
-			moveUp.y *= -1.0f; 
+			moveUp.y *= -1.0f;
 		}
 	} else if (gravityVector.x != 0) { // 重力がX軸方向
 		moveRight = {0.0f, -1.0f, 0.0f};
@@ -34,17 +157,17 @@ void Player::Move(const KamataEngine::Vector3& gravityVector) {
 
 	// --- 左右移動 ---
 	Vector3 acceleration = {};
-	if (Input::GetInstance()->PushKey(DIK_D) || Input::GetInstance()->PushKey(DIK_A)) {
+	if (!isAttacking_ && (Input::GetInstance()->PushKey(DIK_D) || Input::GetInstance()->PushKey(DIK_A))) {
 
 		if (Input::GetInstance()->PushKey(DIK_D)) {
 			acceleration = moveRight * kAcceleration;
-			// ★復活★ 逆入力でのブレーキ
+			// 逆入力でのブレーキ
 			float dot = velocity_.x * moveRight.x + velocity_.y * moveRight.y;
 			if (dot < 0.0f) {
 				velocity_ = velocity_ * (1.0f - kAttenuation);
 			}
 
-			// ★復活★ 向きを変える処理
+			// 向きを変える処理
 			if (lrDirection_ != LRDirection::kRight) {
 				lrDirection_ = LRDirection::kRight;
 				turnFirstRotationY_ = worldTransform_.rotation_.y;
@@ -52,13 +175,13 @@ void Player::Move(const KamataEngine::Vector3& gravityVector) {
 			}
 		} else if (Input::GetInstance()->PushKey(DIK_A)) {
 			acceleration = moveRight * -kAcceleration;
-			// ★復活★ 逆入力でのブレーキ
+			// 逆入力でのブレーキ
 			float dot = velocity_.x * moveRight.x + velocity_.y * moveRight.y;
 			if (dot > 0.0f) {
 				velocity_ = velocity_ * (1.0f - kAttenuation);
 			}
 
-			// ★復活★ 向きを変える処理
+			// 向きを変える処理
 			if (lrDirection_ != LRDirection::kLeft) {
 				lrDirection_ = LRDirection::kLeft;
 				turnFirstRotationY_ = worldTransform_.rotation_.y;
@@ -67,7 +190,7 @@ void Player::Move(const KamataEngine::Vector3& gravityVector) {
 		}
 		velocity_ += acceleration;
 	} else {
-		// --- ★改良★ 摩擦による減速 ---
+		// --- 摩擦による減速 ---
 		// プレイヤーの進行方向の速度だけを減速させる
 		float dot = velocity_.x * moveRight.x + velocity_.y * moveRight.y;
 		Vector3 runVelocity = moveRight * dot;
@@ -76,7 +199,7 @@ void Player::Move(const KamataEngine::Vector3& gravityVector) {
 		velocity_ = runVelocity + otherVelocity;
 	}
 
-	// --- ★改良★ 走行速度の制限 ---
+	// --- 走行速度の制限 ---
 	float runSpeedDot = velocity_.x * moveRight.x + velocity_.y * moveRight.y;
 	Vector3 runVelocity = moveRight * runSpeedDot;
 	Vector3 otherVelocity = velocity_ - runVelocity;
@@ -86,18 +209,26 @@ void Player::Move(const KamataEngine::Vector3& gravityVector) {
 	}
 	velocity_ = runVelocity + otherVelocity;
 
-	// --- ジャンプと重力 (新しい方式のまま) ---
 	if (onGround_) {
+		jumpCount = 0;
+	} else {
+		if (jumpCount == 0) {
+			jumpCount = 1;
+		}
+	}
+	// --- ジャンプと重力 ---
+	if (!isAttacking_ && jumpCount < kMaxJumpCount) {
 		if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
 			velocity_ += moveUp * kJumpAcceleration;
 			onGround_ = false;
+			jumpCount++;
 		}
 	}
 
 	// onGround_の如何に関わらず、常に重力を加算する
 	velocity_ += gravityVector;
 
-	// --- ★復活★ 最大落下速度の制限 ---
+	// --- 最大落下速度の制限 ---
 	// 落下方向の速度を計算 (重力と逆方向が上なので、上方向との内積の逆が落下速度)
 	float fallSpeed = -(velocity_.x * moveUp.x + velocity_.y * moveUp.y);
 	if (fallSpeed > kLimitFallSpeed) {
@@ -463,6 +594,12 @@ void Player::Initialize(KamataEngine::Model* model, uint32_t textureHandle, Kama
 	// 接地フラグをリセット
 	onGround_ = false;
 
+	// 攻撃フラグ
+	isAttacking_ = false;
+	attackTimer_ = 0.0f;
+	attackStartPosition_ = {};
+	isAttackBlocked_ = false;
+
 	// 生存状態で初期化
 	isDead_ = false;
 }
@@ -473,112 +610,100 @@ void Player::Update(const KamataEngine::Vector3& gravityVector, float cameraAngl
 		return;
 	}
 
-	// 毎フレームのプレイヤーの基本情報を出力
-	std::string debugText = std::format(
-	    "Player Pos:({:.2f}, {:.2f}), Vel:({:.2f}, {:.2f}), onGround:{}, Grav:({:.2f}, {:.2f})\n", worldTransform_.translation_.x, worldTransform_.translation_.y, velocity_.x, velocity_.y, onGround_,
-	    gravityVector.x, gravityVector.y);
-	OutputDebugStringA(debugText.c_str());
+	// このフレームでの攻撃による移動量
+	Vector3 attackMove = {};
+
+	// 攻撃中の処理
+	if (isAttacking_) {
+		attackTimer_ -= 1.0f / 60.0f; // 60FPS想定
+
+		if (!isAttackBlocked_) {
+			float t = 1.0f - (attackTimer_ / kAttackDuration);
+			t = std::clamp(t, 0.0f, 1.0f);
+
+			// (moveRight, attackDirectionの計算は変更なし)
+			// ...
+			Vector3 moveRight = {0, 0, 0};
+			if (gravityVector.y != 0) {        // ...
+			} else if (gravityVector.x != 0) { // ...
+			}
+			Vector3 attackDirection = (lrDirection_ == LRDirection::kRight) ? moveRight : -moveRight;
+
+			float distance = EaseOutQuint(t) * kAttackDistance;
+			Vector3 targetPosition = attackStartPosition_ + attackDirection * distance;
+			attackMove = targetPosition - worldTransform_.translation_;
+		}
+
+		// イージングの進捗率を計算 (1.0 -> 0.0)
+		float t = 1.0f - (attackTimer_ / kAttackDuration);
+		t = std::clamp(t, 0.0f, 1.0f); // 念のため0.0f～1.0fの範囲に収める
+
+		// プレイヤーにとっての「右」を計算 (Attack関数と同様)
+		Vector3 moveRight = {0, 0, 0};
+		if (gravityVector.y != 0) {
+			moveRight = {1.0f, 0.0f, 0.0f};
+			if (gravityVector.y > 0)
+				moveRight.x *= -1.0f;
+		} else if (gravityVector.x != 0) {
+			moveRight = {0.0f, -1.0f, 0.0f};
+			if (gravityVector.x > 0)
+				moveRight.y *= -1.0f;
+		}
+
+		// 向きに応じた攻撃方向
+		Vector3 attackDirection = (lrDirection_ == LRDirection::kRight) ? moveRight : -moveRight;
+
+		// イージング(EaseOutQuart)を使って現在の目標位置を計算
+		float distance = EaseOutQuint(t) * kAttackDistance;
+		Vector3 targetPosition = attackStartPosition_ + attackDirection * distance;
+
+		// 現在位置から目標位置までの差分を、このフレームでの移動量とする
+		attackMove = targetPosition - worldTransform_.translation_;
+
+		// 攻撃タイマーが終了したらフラグを折る
+		if (attackTimer_ <= 0.0f) {
+			isAttacking_ = false;
+			isAttackBlocked_ = false; 
+		}
+	} else {
+		// 攻撃中でない場合、Jキー入力を受け付ける
+		if (Input::GetInstance()->TriggerKey(DIK_J)) {
+			Attack(gravityVector);
+		}
+	}
 
 	// 1. 移動と重力の計算（当たり判定前の速度がここで決まる）
 	Move(gravityVector);
 
-	// 2. 当たり判定と移動量の補正
-	// 重力方向に応じて、衝突判定の軸を入れ替える
-	if (gravityVector.y != 0) { // 重力が上下方向の場合 (従来通り)
-		// X軸（水平）の衝突判定と移動
-		{
-			CollisionMapInfo infoX{};
-			infoX.move = {velocity_.x, 0.0f, 0.0f};
-			MapCollisionRight(infoX);
-			MapCollisionLeft(infoX);
-			if (infoX.isWallContact) {
-				velocity_.x = 0.0f;
-			}
-			worldTransform_.translation_.x += infoX.move.x;
+	// 最終的な移動量を計算（キー入力による移動速度 + 攻撃による移動量）
+	Vector3 finalMove = velocity_ + attackMove;
+
+	float moveLength = Length(finalMove);
+	Vector3 moveDirection = {0, 0, 0};
+	if (moveLength > 0.001f) {
+		moveDirection = finalMove / moveLength;
+	}
+
+	// 1ステップの最大移動距離をプレイヤーの幅の半分より少し小さい値に設定
+	const float stepSize = kWidth * 0.45f;
+	int numSteps = static_cast<int>(moveLength / stepSize);
+
+	bool collidedInLoop = false; // 衝突したかどうかの旗を用意
+
+	// 分割ステップで移動と当たり判定を繰り返す
+	for (int i = 0; i < numSteps; ++i) {
+		// 衝突したら、それ以上移動しない
+		if (MoveAndCollide(moveDirection * stepSize, gravityVector)) {
+			collidedInLoop = true; // 旗を立てて
+			break;                 // ループを抜ける
 		}
+	}
 
-		// Y軸（垂直）の衝突判定と移動
-		{
-			CollisionMapInfo infoY{};
-			infoY.move = {0.0f, velocity_.y, 0.0f};
-			MapCollisionUp(infoY);
-			MapCollisionDown(infoY);
-			worldTransform_.translation_.y += infoY.move.y;
-
-			// 1. 通常の床への着地 (重力が下向きのとき)
-			bool landedOnFloor = (gravityVector.y < 0 && infoY.isLanding);
-			// 2. 天井への"着地" (重力が上向きのとき)
-			bool landedOnCeiling = (gravityVector.y > 0 && infoY.isCeilingHit);
-
-			// 床か天井、どちらかに着地していれば onGround を true にする
-			if (landedOnFloor || landedOnCeiling) {
-				onGround_ = true;
-				velocity_.y = 0.0f;
-			} else {
-				onGround_ = false;
-			}
-
-			// 3. ジャンプして頭をぶつけた時の処理
-			// (通常重力で天井にヒット OR 上向き重力で床にヒット)
-			if ((gravityVector.y < 0 && infoY.isCeilingHit) || (gravityVector.y > 0 && infoY.isLanding)) {
-				velocity_.y = 0.0f;
-			}
-		}
-	} else if (gravityVector.x != 0) { // 重力が左右方向の場合
-		// Y軸（プレイヤーにとっての水平）の衝突判定と移動
-		{
-			// Y方向の速度がごくわずかな場合は、水平判定をスキップする
-			if (std::abs(velocity_.y) > 0.001f) {
-				CollisionMapInfo infoY{};
-				infoY.move = {0.0f, velocity_.y, 0.0f};
-				// MapCollisionUp/Down が壁判定の役割を果たす
-				MapCollisionUp(infoY);
-				MapCollisionDown(infoY);
-				// 天井か床に当たったら、それは壁接触とみなす
-				if (infoY.isCeilingHit || infoY.isLanding) {
-					velocity_.y = 0.0f;
-				}
-				worldTransform_.translation_.y += infoY.move.y;
-			}
-		}
-
-		// X軸（プレイヤーにとっての垂直）の衝突判定と移動
-		{
-			CollisionMapInfo infoX{};
-			infoX.move = {velocity_.x, 0.0f, 0.0f};
-			// MapCollisionRight/Left が接地/頭上判定の役割を果たす
-			MapCollisionRight(infoX);
-			MapCollisionLeft(infoX);
-			worldTransform_.translation_.x += infoX.move.x;
-
-			// 接地判定 (重力と同じ方向の壁に、同じ方向に移動して接触した場合)
-			bool isLandingX = (gravityVector.x > 0 && infoX.isWallContact && velocity_.x >= 0) || // 右向き重力で右壁に接触
-			                  (gravityVector.x < 0 && infoX.isWallContact && velocity_.x <= 0);   // 左向き重力で左壁に接触
-
-			// 天井判定 (重力と逆方向の壁に、逆方向に移動して接触した場合)
-			bool isCeilingHitX = (gravityVector.x > 0 && infoX.isWallContact && velocity_.x < 0) || // 右向き重力で左壁に接触
-			                     (gravityVector.x < 0 && infoX.isWallContact && velocity_.x > 0);   // 左向き重力で右壁に接触
-
-			// X軸重力時の判定結果を詳しく出力
-			if (infoX.isWallContact) { // 壁に接触したときだけログを出す
-				std::string xGravDebugText =
-				    std::format("  [X-Grav Check] WallContact:{}, Vel.x:{:.2f} -> isLandingX:{}, isCeilingHitX:{}\n", infoX.isWallContact, velocity_.x, isLandingX, isCeilingHitX);
-				OutputDebugStringA(xGravDebugText.c_str());
-			}
-
-			if (isLandingX) {
-				onGround_ = true;
-				velocity_.x = 0.0f;
-			} else {
-				// isLandingXがfalseでも、天井に当たっていないならonGround_をfalseにする
-				// (空中でもう一方の壁に当たった場合に接地判定が残るのを防ぐ)
-				if (!isCeilingHitX) {
-					onGround_ = false;
-				}
-			}
-			if (isCeilingHitX) {
-				velocity_.x = 0.0f;
-			}
+	// ループで衝突していなければ、残りの移動を処理する
+	if (!collidedInLoop) {
+		Vector3 remainingMove = finalMove - (moveDirection * stepSize * float(numSteps));
+		if (Length(remainingMove) > 0.001f) {
+			MoveAndCollide(remainingMove, gravityVector);
 		}
 	}
 

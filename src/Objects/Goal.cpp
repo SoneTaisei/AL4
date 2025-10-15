@@ -1,5 +1,5 @@
-#include "Goal.h"
-#include "TransformUpdater.h"
+#include "Objects/Goal.h"
+#include "Utils/TransformUpdater.h"
 
 void Goal::Initialize(KamataEngine::Model* model, const KamataEngine::Vector3& position) {
 	model_ = model;

@@ -1,7 +1,7 @@
-#include "TitleScene.h"
+#include "Scenes/TitleScene.h"
 
-#include "TransformUpdater.h"
-#include "Skydome.h"
+#include "Utils/TransformUpdater.h"
+#include "Effects/Skydome.h"
 
 using namespace KamataEngine;
 

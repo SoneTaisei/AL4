@@ -1,6 +1,6 @@
 #pragma once
 #include "KamataEngine.h"
-#include "Fade.h"
+#include "Effects/Fade.h"
 #include <vector>
 
 class Skydome; 
