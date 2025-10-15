@@ -13,6 +13,94 @@ using namespace KamataEngine;
 // ★★★ ベクトルの長さを計算するヘルパー関数を追加 ★★★
 float Length(const KamataEngine::Vector3& v) { return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z); }
 
+void Player::UpdateAttack(const KamataEngine::Vector3& gravityVector, KamataEngine::Vector3& outAttackMove) {
+	// 攻撃中の処理
+	if (isAttacking_) {
+		attackTimer_ -= 1.0f / 60.0f;
+		float elapsedTime = kAttackDuration - attackTimer_;
+
+		// フェーズ1：タメ (Squash)
+		if (elapsedTime < kAttackSquashDuration) {
+			outAttackMove = {}; // タメ中は移動しない
+			float t = elapsedTime / kAttackSquashDuration;
+			float easedT = EaseOutQuint(t);
+			worldTransform_.scale_.y = 1.0f + kSquashAmountY * easedT;
+			worldTransform_.scale_.x = 1.0f - kSquashAmountY * easedT;
+		}
+		// フェーズ2：伸び (Stretch) & 突進
+		else {
+			float t = (elapsedTime - kAttackSquashDuration) / kAttackStretchDuration;
+			t = std::clamp(t, 0.0f, 1.0f);
+			float wave = sinf(t * std::numbers::pi_v<float>);
+			worldTransform_.scale_.y = 1.0f - kStretchAmountY * wave;
+			worldTransform_.scale_.x = 1.0f + (kStretchAmountY / 2.0f) * wave;
+
+			float moveT = EaseOutQuint(t);
+			Vector3 moveRight = {0, 0, 0};
+			if (gravityVector.y != 0) {
+				moveRight = {1.0f, 0.0f, 0.0f};
+				if (gravityVector.y > 0)
+					moveRight.x *= -1.0f;
+			} else if (gravityVector.x != 0) {
+				moveRight = {0.0f, -1.0f, 0.0f};
+				if (gravityVector.x > 0)
+					moveRight.y *= -1.0f;
+			}
+			Vector3 attackDirection = (lrDirection_ == LRDirection::kRight) ? moveRight : -moveRight;
+			float distance = moveT * kAttackDistance;
+			Vector3 targetPosition = attackStartPosition_ + attackDirection * distance;
+			outAttackMove = targetPosition - worldTransform_.translation_;
+		}
+
+		if (attackTimer_ <= 0.0f) {
+			isAttacking_ = false;
+		}
+
+	} else {
+		// 攻撃中でないときは、スケールを滑らかに1.0に戻す
+		worldTransform_.scale_.x = Lerp(worldTransform_.scale_.x, 1.0f, 0.2f);
+		worldTransform_.scale_.y = Lerp(worldTransform_.scale_.y, 1.0f, 0.2f);
+
+		if (Input::GetInstance()->TriggerKey(DIK_J)) {
+			Attack(gravityVector);
+		}
+	}
+}
+
+void Player::ApplyCollisionAndMove(const KamataEngine::Vector3& finalMove, const KamataEngine::Vector3& gravityVector) {
+	float moveLength = Length(finalMove);
+	Vector3 moveDirection = {0, 0, 0};
+	if (moveLength > 0.001f) {
+		moveDirection = finalMove / moveLength;
+	}
+
+	const float stepSize = kWidth * 0.45f;
+	int numSteps = static_cast<int>(moveLength / stepSize);
+
+	for (int i = 0; i < numSteps; ++i) {
+		if (MoveAndCollide(moveDirection * stepSize, gravityVector)) {
+			return; // 衝突したら、それ以上移動しない
+		}
+	}
+
+	Vector3 remainingMove = finalMove - (moveDirection * stepSize * float(numSteps));
+	if (Length(remainingMove) > 0.001f) {
+		MoveAndCollide(remainingMove, gravityVector);
+	}
+}
+
+void Player::UpdateRotationAndTransform(float cameraAngleZ) {
+	if (turnTimer_ < 1.0f) {
+		turnTimer_ += 1.0f / 20.0f;
+		float destRotYTable[] = {std::numbers::pi_v<float> / 2.0f, std::numbers::pi_v<float> * 3.0f / 2.0f};
+		float destRotY = destRotYTable[static_cast<uint32_t>(lrDirection_)];
+		worldTransform_.rotation_.y = Lerp(turnFirstRotationY_, destRotY, turnTimer_);
+	}
+	worldTransform_.rotation_.z = cameraAngleZ;
+	TransformUpdater::WorldTransformUpdate(worldTransform_);
+	worldTransform_.TransferMatrix();
+}
+
 void Player::Attack(const KamataEngine::Vector3& gravityVector) {
 	// 攻撃中に再度呼び出された場合は何もしない
 	if (isAttacking_) {
@@ -133,7 +221,7 @@ bool Player::MoveAndCollide(const KamataEngine::Vector3& move, const KamataEngin
 }
 
 // Move関数の実装をここに追加
-void Player::Move(const KamataEngine::Vector3& gravityVector) {
+void Player::UpdateVelocityByInput(const KamataEngine::Vector3& gravityVector) {
 
 	// 現在の重力方向から、プレイヤーにとっての「右」と「上」を計算する (これは新しい方式のまま)
 	Vector3 moveRight = {0, 0, 0};
@@ -610,120 +698,19 @@ void Player::Update(const KamataEngine::Vector3& gravityVector, float cameraAngl
 		return;
 	}
 
-	// このフレームでの攻撃による移動量
+	// 1. 攻撃の状態を更新し、攻撃による移動量を取得する
 	Vector3 attackMove = {};
+	UpdateAttack(gravityVector, attackMove);
 
-	// 攻撃中の処理
-	if (isAttacking_) {
-		attackTimer_ -= 1.0f / 60.0f; // 60FPS想定
+	// 2. キー入力に応じて速度を更新する
+	UpdateVelocityByInput(gravityVector);
 
-		if (!isAttackBlocked_) {
-			float t = 1.0f - (attackTimer_ / kAttackDuration);
-			t = std::clamp(t, 0.0f, 1.0f);
-
-			// (moveRight, attackDirectionの計算は変更なし)
-			// ...
-			Vector3 moveRight = {0, 0, 0};
-			if (gravityVector.y != 0) {        // ...
-			} else if (gravityVector.x != 0) { // ...
-			}
-			Vector3 attackDirection = (lrDirection_ == LRDirection::kRight) ? moveRight : -moveRight;
-
-			float distance = EaseOutQuint(t) * kAttackDistance;
-			Vector3 targetPosition = attackStartPosition_ + attackDirection * distance;
-			attackMove = targetPosition - worldTransform_.translation_;
-		}
-
-		// イージングの進捗率を計算 (1.0 -> 0.0)
-		float t = 1.0f - (attackTimer_ / kAttackDuration);
-		t = std::clamp(t, 0.0f, 1.0f); // 念のため0.0f～1.0fの範囲に収める
-
-		// プレイヤーにとっての「右」を計算 (Attack関数と同様)
-		Vector3 moveRight = {0, 0, 0};
-		if (gravityVector.y != 0) {
-			moveRight = {1.0f, 0.0f, 0.0f};
-			if (gravityVector.y > 0)
-				moveRight.x *= -1.0f;
-		} else if (gravityVector.x != 0) {
-			moveRight = {0.0f, -1.0f, 0.0f};
-			if (gravityVector.x > 0)
-				moveRight.y *= -1.0f;
-		}
-
-		// 向きに応じた攻撃方向
-		Vector3 attackDirection = (lrDirection_ == LRDirection::kRight) ? moveRight : -moveRight;
-
-		// イージング(EaseOutQuart)を使って現在の目標位置を計算
-		float distance = EaseOutQuint(t) * kAttackDistance;
-		Vector3 targetPosition = attackStartPosition_ + attackDirection * distance;
-
-		// 現在位置から目標位置までの差分を、このフレームでの移動量とする
-		attackMove = targetPosition - worldTransform_.translation_;
-
-		// 攻撃タイマーが終了したらフラグを折る
-		if (attackTimer_ <= 0.0f) {
-			isAttacking_ = false;
-			isAttackBlocked_ = false; 
-		}
-	} else {
-		// 攻撃中でない場合、Jキー入力を受け付ける
-		if (Input::GetInstance()->TriggerKey(DIK_J)) {
-			Attack(gravityVector);
-		}
-	}
-
-	// 1. 移動と重力の計算（当たり判定前の速度がここで決まる）
-	Move(gravityVector);
-
-	// 最終的な移動量を計算（キー入力による移動速度 + 攻撃による移動量）
+	// 3. 最終的な移動量を計算し、衝突判定を行いながら移動する
 	Vector3 finalMove = velocity_ + attackMove;
+	ApplyCollisionAndMove(finalMove, gravityVector);
 
-	float moveLength = Length(finalMove);
-	Vector3 moveDirection = {0, 0, 0};
-	if (moveLength > 0.001f) {
-		moveDirection = finalMove / moveLength;
-	}
-
-	// 1ステップの最大移動距離をプレイヤーの幅の半分より少し小さい値に設定
-	const float stepSize = kWidth * 0.45f;
-	int numSteps = static_cast<int>(moveLength / stepSize);
-
-	bool collidedInLoop = false; // 衝突したかどうかの旗を用意
-
-	// 分割ステップで移動と当たり判定を繰り返す
-	for (int i = 0; i < numSteps; ++i) {
-		// 衝突したら、それ以上移動しない
-		if (MoveAndCollide(moveDirection * stepSize, gravityVector)) {
-			collidedInLoop = true; // 旗を立てて
-			break;                 // ループを抜ける
-		}
-	}
-
-	// ループで衝突していなければ、残りの移動を処理する
-	if (!collidedInLoop) {
-		Vector3 remainingMove = finalMove - (moveDirection * stepSize * float(numSteps));
-		if (Length(remainingMove) > 0.001f) {
-			MoveAndCollide(remainingMove, gravityVector);
-		}
-	}
-
-	// 3. 向きの更新と行列の転送
-	if (turnTimer_ < 1.0f) {
-		turnTimer_ += 1.0f / 20.0f;
-		float destRotYTable[] = {std::numbers::pi_v<float> / 2.0f, std::numbers::pi_v<float> * 3.0f / 2.0f};
-		float destRotY = destRotYTable[static_cast<uint32_t>(lrDirection_)];
-		worldTransform_.rotation_.y = Lerp(turnFirstRotationY_, destRotY, turnTimer_);
-	}
-
-	// カメラのZ軸回転をプレイヤーのZ軸回転に反映させる
-	worldTransform_.rotation_.z = cameraAngleZ;
-
-	TransformUpdater::WorldTransformUpdate(worldTransform_);
-	worldTransform_.TransferMatrix();
-
-	// 座標を元に行列の更新を行う
-	TransformUpdater::WorldTransformUpdate(worldTransform_);
-	worldTransform_.TransferMatrix();
+	// 4. 向きの更新とワールド行列の計算
+	UpdateRotationAndTransform(cameraAngleZ);
 }
 
 void Player::Draw() {

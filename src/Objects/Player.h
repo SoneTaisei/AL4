@@ -73,10 +73,22 @@ private:
 
 	// 攻撃中フラグ
 	bool isAttacking_ = false;
+
 	// 攻撃タイマー
 	float attackTimer_ = 0.0f;
-	// 攻撃の時間 <秒>
-	static inline const float kAttackDuration = 0.4f;
+	// ★★★ 攻撃の時間を分割して定義 ★★★
+	// 攻撃の「タメ」の時間 <秒>
+	static inline const float kAttackSquashDuration = 0.1f;
+	// 攻撃の「伸び」の時間 <秒>
+	static inline const float kAttackStretchDuration = 0.3f;
+	// 攻撃の合計時間
+	static inline const float kAttackDuration = kAttackSquashDuration + kAttackStretchDuration;
+
+	// ★★★ モーションの強さを定義 ★★★
+	// タメモーションのY方向の縮み量 (例: 0.5f -> 元の50%まで縮む)
+	static inline const float kSquashAmountY = 0.5f;
+	// 伸びモーションのY方向の伸び量 (例: 0.5f -> 元の1.5倍まで伸びる)
+	static inline const float kStretchAmountY = 0.5f;
 	// 攻撃の突進距離
 	static inline const float kAttackDistance = 8.0f;
 	// 攻撃開始時の座標
@@ -105,12 +117,6 @@ private:
 	/// <param name="corner">角の種類</param>
 	/// <returns>指定した角の座標</returns>
 	KamataEngine::Vector3 CornerPosition(const KamataEngine::Vector3 center, Corner corner);
-
-
-	/// <summary>
-	/// 移動入力
-	/// </summary>
-	void Move(const KamataEngine::Vector3& gravityVector);
 
 	/// <summary>
 	/// 攻撃処理
@@ -149,6 +155,37 @@ private:
 	/// </summary>
 	/// <param name="info">衝突情報</param>
 	void HandleCeilingCollision(const CollisionMapInfo& info);
+
+	/// <summary>
+	/// 攻撃に関する状態更新（モーション、移動量計算、入力受付など）
+	/// </summary>
+	/// <param name="gravityVector">現在の重力</param>
+	/// <param name="outAttackMove">計算された攻撃の移動量（出力用）</param>
+	void UpdateAttack(const KamataEngine::Vector3& gravityVector, KamataEngine::Vector3& outAttackMove);
+
+	/// <summary>
+	/// キー入力に応じて速度を更新する
+	/// </summary>
+	/// <param name="gravityVector">現在の重力</param>
+	void UpdateVelocityByInput(const KamataEngine::Vector3& gravityVector);
+
+	/// <summary>
+	/// 最終的な移動量を元に、衝突判定を行いながら座標を更新する
+	/// </summary>
+	/// <param name="finalMove">最終的な移動量</param>
+	/// <param name="gravityVector">現在の重力</param>
+	void ApplyCollisionAndMove(const KamataEngine::Vector3& finalMove, const KamataEngine::Vector3& gravityVector);
+
+	/// <summary>
+	/// 向きの更新とワールド行列の計算
+	/// </summary>
+	/// <param name="cameraAngleZ">カメラのZ軸回転</param>
+	void UpdateRotationAndTransform(float cameraAngleZ);
+
+	/// <summary>
+	/// 移動入力 (古い名前、UpdateVelocityByInputに役割を移譲)
+	/// </summary>
+	// void Move(const KamataEngine::Vector3& gravityVector); // ← 分かりやすい名前に変更したのでコメントアウト or 削除
 
 public:
 	/// <summary>
