@@ -1,5 +1,5 @@
 #pragma once
-#include "Collision.h"
+#include "System/Collision.h"
 #include "KamataEngine.h"
 
 class Goal {

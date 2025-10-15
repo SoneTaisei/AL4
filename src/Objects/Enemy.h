@@ -1,7 +1,7 @@
 #pragma once
 #include "KamataEngine.h"
 #include <numbers>
-#include "Collision.h"
+#include "System/Collision.h"
 
 // 循環参照を避けるための前方宣言
 class Player;

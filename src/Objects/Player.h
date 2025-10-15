@@ -1,6 +1,7 @@
 #pragma once
 #include "KamataEngine.h"
-#include "Collision.h"
+#include "System/Collision.h"
+#include "Utils/Easing.h"
 
 class TransformUpdater;
 class MapChipField;
@@ -66,6 +67,22 @@ private:
 	// ジャンプ初速
 	static inline const float kJumpAcceleration = 0.5f;
 
+	//ジャンプ回数
+	const int kMaxJumpCount = 3;
+	int jumpCount = 0;
+
+	// 攻撃中フラグ
+	bool isAttacking_ = false;
+	// 攻撃タイマー
+	float attackTimer_ = 0.0f;
+	// 攻撃の時間 <秒>
+	static inline const float kAttackDuration = 0.4f;
+	// 攻撃の突進距離
+	static inline const float kAttackDistance = 8.0f;
+	// 攻撃開始時の座標
+	KamataEngine::Vector3 attackStartPosition_ = {};
+	bool isAttackBlocked_ = false;
+
 	// マップチップによるフィールド
 	MapChipField* mapChipFiled_ = nullptr;
 
@@ -93,7 +110,21 @@ private:
 	/// <summary>
 	/// 移動入力
 	/// </summary>
-	void Move(const KamataEngine::Vector3& gravityVector); // 新しい関数の宣言
+	void Move(const KamataEngine::Vector3& gravityVector);
+
+	/// <summary>
+	/// 攻撃処理
+	/// </summary>
+	void Attack(const KamataEngine::Vector3& gravityVector);
+
+	// ★★★ 以下を追加 ★★★
+	/// <summary>
+	/// 衝突を考慮しながら指定された量だけ移動する
+	/// </summary>
+	/// <param name="move">移動量</param>
+	/// <param name="gravityVector">現在の重力ベクトル</param>
+	/// <returns>衝突が発生した場合 true</returns>
+	bool MoveAndCollide(const KamataEngine::Vector3& move, const KamataEngine::Vector3& gravityVector);
 
 	/// <summary>
 	/// マップ衝突判定

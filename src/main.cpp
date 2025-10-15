@@ -1,7 +1,7 @@
-#include "GameScene.h"
+#include "Scenes/GameScene.h"
 #include "KamataEngine.h"
-#include "StageSelectScene.h"
-#include "TitleScene.h"
+#include "Scenes/StageSelectScene.h"
+#include "Scenes/TitleScene.h"
 #include <Windows.h>
 using namespace KamataEngine;
 
@@ -122,6 +122,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	// ローカル変数ではなく、グローバルのポインタを使う
 	titleScene = new TitleScene();
 	titleScene->Initialize();
+	int nextScene = 0;
 
 	/*********************************************************
 	 *メインループ
@@ -134,6 +135,25 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		}
 
 		imguiManager->Begin();
+
+		// ==================================================
+		// ★★★ ここからImGuiのデバッグ用UIを追加 ★★★
+		// ==================================================
+		ImGui::Begin("Scene Controller");
+
+		// シーン一覧のコンボボックスを表示するための準備
+		const char* sceneItems[] = {"Title", "Stage Select", "Game"};
+		// 現在のシーンenum値からコンボボックスのインデックスを計算
+		// (enumのkTitleが1から始まっていることを想定)
+
+		ImGui::Combo("Scene", &nextScene, sceneItems, IM_ARRAYSIZE(sceneItems));
+
+		// 「Change Scene」ボタンが押されたらシーンを強制的に切り替える
+		if (ImGui::Button("Change Scene")) {
+			// 選択されたインデックスから次のシーンのenum値を取得
+			scene = Scene(nextScene+1);
+		}
+		ImGui::End();
 
 		// 1. シーン切り替え
 		ChangeScene();

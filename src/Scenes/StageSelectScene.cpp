@@ -1,7 +1,7 @@
 #include "StageSelectScene.h"
-#include "Fade.h"
-#include "Skydome.h"          // Skydomeクラスを使うために必要
-#include "TransformUpdater.h" // WorldTransformの更新に必要
+#include "Effects/Fade.h"
+#include "Effects/Skydome.h"          // Skydomeクラスを使うために必要
+#include "Utils/TransformUpdater.h" // WorldTransformの更新に必要
 #include <memory>
 
 using namespace KamataEngine;

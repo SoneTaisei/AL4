@@ -1,6 +1,6 @@
 #include "CameraController.h"
-#include "Easing.h"
-#include "Player.h"
+#include "Utils/Easing.h"
+#include "Objects/Player.h"
 #include <algorithm>
 #include <numbers>
 

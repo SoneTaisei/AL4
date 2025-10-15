@@ -1,5 +1,5 @@
 #include "DeathParticles.h"
-#include "TransformUpdater.h" // WorldTransformUpdate を使うために必要
+#include "Utils/TransformUpdater.h" // WorldTransformUpdate を使うために必要
 #include <algorithm>
 
 using namespace KamataEngine;

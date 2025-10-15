@@ -1,7 +1,7 @@
 #pragma once
 #include "KamataEngine.h"
 #include <list>
-#include "Fade.h"
+#include "Effects/Fade.h"
 
 class Player;
 class Enemy;

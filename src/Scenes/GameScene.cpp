@@ -1,15 +1,15 @@
 #include "GameScene.h"
-#include "Fade.h"
-#include "CameraController.h"
-#include "DeathParticles.h"
-#include "Enemy.h"
-#include "MapChipField.h"
-#include "Player.h"
-#include "Skydome.h"
-#include "TransformUpdater.h"
+#include "Effects/Fade.h"
+#include "System/CameraController.h"
+#include "Effects/DeathParticles.h"
+#include "Objects/Enemy.h"
+#include "System/MapChipField.h"
+#include "Objects/Player.h"
+#include "Effects/Skydome.h"
+#include "Utils/TransformUpdater.h"
 #include <Windows.h> // OutputDebugStringA を使うために必要
 #include <cstdio>    // sprintf_s を使うために必要
-#include "Goal.h"
+#include "Objects/Goal.h"
 
 using namespace KamataEngine;
 
@@ -239,61 +239,8 @@ void GameScene::Update() {
 			return;
 		}
 
-		// --- ステップ1: キー入力でカメラの目標角度を「加算/減算」する ---
-		if (Input::GetInstance()->TriggerKey(DIK_RIGHT)) {
-			cameraTargetAngleZ_ += std::numbers::pi_v<float> / 2.0f; // 右に90度回転
-		}
-		if (Input::GetInstance()->TriggerKey(DIK_LEFT)) {
-			cameraTargetAngleZ_ -= std::numbers::pi_v<float> / 2.0f; // 左に90度回転
-		}
-		if (Input::GetInstance()->TriggerKey(DIK_UP)) {
-			cameraTargetAngleZ_ += std::numbers::pi_v<float>; // 180度回転
-		}
-		if (Input::GetInstance()->TriggerKey(DIK_DOWN)) {
-			cameraTargetAngleZ_ = 0.0f; // 0度（初期状態）にリセット
-		}
-
-		// CameraControllerに目標角度を伝える
-		cameraController_->SetTargetAngleZ(cameraTargetAngleZ_);
-
-		// --- ステップ2: 最終的なカメラの角度から重力の向きを「決定」する ---
-		// 角度を正規化して比較しやすくする (例: 270度を-90度として扱うなど)
-		float normalizedAngle = std::fmod(cameraTargetAngleZ_, 2.0f * std::numbers::pi_v<float>);
-		if (normalizedAngle > std::numbers::pi_v<float>) {
-			normalizedAngle -= 2.0f * std::numbers::pi_v<float>;
-		} else if (normalizedAngle < -std::numbers::pi_v<float>) {
-			normalizedAngle += 2.0f * std::numbers::pi_v<float>;
-		}
-
-		// 角度に応じて重力の向きを決定
-		const float epsilon = 0.01f; // 浮動小数点数の比較誤差を吸収
-		if (std::abs(normalizedAngle - 0.0f) < epsilon) {
-			gravityDirection_ = GravityDirection::kDown;
-		} else if (std::abs(normalizedAngle - (std::numbers::pi_v<float> / 2.0f)) < epsilon) {
-			gravityDirection_ = GravityDirection::kRight;
-		} else if (std::abs(normalizedAngle - (-std::numbers::pi_v<float> / 2.0f)) < epsilon) {
-			gravityDirection_ = GravityDirection::kLeft;
-		} else if (std::abs(normalizedAngle - std::numbers::pi_v<float>) < epsilon || std::abs(normalizedAngle - -std::numbers::pi_v<float>) < epsilon) {
-			gravityDirection_ = GravityDirection::kUp;
-		}
-
 		// --- ステップ3: 決定した重力方向から重力ベクトルを生成 ---
 		Vector3 gravityVector = {0.0f, -Player::GetGravityAcceleration(), 0.0f};
-		switch (gravityDirection_) {
-		case GravityDirection::kUp:
-			gravityVector = {0.0f, Player::GetGravityAcceleration(), 0.0f};
-			break;
-		case GravityDirection::kLeft:
-			gravityVector = {-Player::GetGravityAcceleration(), 0.0f, 0.0f};
-			break;
-		case GravityDirection::kRight:
-			gravityVector = {Player::GetGravityAcceleration(), 0.0f, 0.0f};
-			break;
-		case GravityDirection::kDown:
-		default:
-			gravityVector = {0.0f, -Player::GetGravityAcceleration(), 0.0f};
-			break;
-		}
 
 		// プレイヤーの更新（計算した重力ベクトルを渡す）
 		player_->Update(gravityVector, cameraTargetAngleZ_);

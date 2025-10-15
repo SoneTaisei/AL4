@@ -1,7 +1,7 @@
 #include "Enemy.h"
-#include "Easing.h"
-#include "MapChipField.h"
-#include "TransformUpdater.h"
+#include "Utils/Easing.h"
+#include "System/MapChipField.h"
+#include "Utils/TransformUpdater.h"
 #include <algorithm>
 #include <array>
 #include <numbers>
