@@ -5,19 +5,29 @@
 #include "Utils/TransformUpdater.h"
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <numbers>
 
 using namespace KamataEngine;
 
-
-// ★★★ ベクトルの長さを計算するヘルパー関数を追加 ★★★
+// ベクトルの長さを計算するヘルパー関数を追加
 float Length(const KamataEngine::Vector3& v) { return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z); }
+
+KamataEngine::Vector3 Normalize(const KamataEngine::Vector3& v) {
+	float len = Length(v);
+	if (len != 0) {
+		return v / len;
+	}
+	return v;
+}
 
 void Player::UpdateAttack(const KamataEngine::Vector3& gravityVector, KamataEngine::Vector3& outAttackMove) {
 	// 攻撃中の処理
 	if (isAttacking_) {
 		attackTimer_ -= 1.0f / 60.0f;
 		float elapsedTime = kAttackDuration - attackTimer_;
+		// 攻撃中は無敵
+		isInvicible_ = true;
 
 		// フェーズ1：タメ (Squash)
 		if (elapsedTime < kAttackSquashDuration) {
@@ -60,6 +70,11 @@ void Player::UpdateAttack(const KamataEngine::Vector3& gravityVector, KamataEngi
 		// 攻撃中でないときは、スケールを滑らかに1.0に戻す
 		worldTransform_.scale_.x = Lerp(worldTransform_.scale_.x, 1.0f, 0.2f);
 		worldTransform_.scale_.y = Lerp(worldTransform_.scale_.y, 1.0f, 0.2f);
+
+		// 被ダメージによる無敵時間中でなければ、無敵状態を解除
+		if (invincibleTimer_ <= 0.0f) {
+			isInvicible_ = false;
+		}
 
 		if (Input::GetInstance()->TriggerKey(DIK_J)) {
 			Attack(gravityVector);
@@ -307,6 +322,7 @@ void Player::UpdateVelocityByInput(const KamataEngine::Vector3& gravityVector) {
 	// --- ジャンプと重力 ---
 	if (!isAttacking_ && jumpCount < kMaxJumpCount) {
 		if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
+			velocity_.y = 0.0f;
 			velocity_ += moveUp * kJumpAcceleration;
 			onGround_ = false;
 			jumpCount++;
@@ -652,8 +668,72 @@ void Player::OnCollision(const Enemy* enemy) {
 	// 衝突相手の情報を表示 (デバッグ用)
 	(void)enemy; // 今は使わないので警告抑制
 
-	// 敵に当たったら死亡フラグを立てる
-	isDead_ = true;
+	// 無敵状態、またはすでに死亡している場合は何もしない
+	if (isInvicible_ || !isAlive_) {
+		return;
+	}
+
+	// HPを減らす
+	hp_ -= kDamageFromEnemy;
+
+	// HPが0以下になったかチェック
+	if (hp_ <= 0) {
+		hp_ = 0;         // HPがマイナスにならないようにする
+		isAlive_ = false; // 死亡フラグを立てる
+	} else {
+		// ダメージを受けたら無敵時間を設定
+		isInvicible_ = true;
+		invincibleTimer_ = kInvincibleDuration;
+
+		// 敵のワールド座標を取得 (EnemyクラスにGetWorldTransform() constが必要です)
+		KamataEngine::Vector3 enemyPos = enemy->GetWorldTransform().translation_;
+		KamataEngine::Vector3 playerPos = worldTransform_.translation_;
+
+		// プレイヤーから敵への逆方向ベクトルを計算
+		KamataEngine::Vector3 knockbackDir = playerPos - enemyPos;
+		knockbackDir.z = 0.0f; // 2DアクションなのでZ軸は無視
+
+		// 完全に座標が重なっている場合の保険
+		if (Length(knockbackDir) < 0.001f) {
+			// 現在のプレイヤーの向きと逆方向に飛ばす
+			KamataEngine::Vector3 moveRight = {0, 0, 0};
+			if (gravity_.y != 0) {
+				moveRight = {1.0f, 0.0f, 0.0f};
+				if (gravity_.y > 0)
+					moveRight.x *= -1.0f;
+			} else if (gravity_.x != 0) {
+				moveRight = {0.0f, -1.0f, 0.0f};
+				if (gravity_.x > 0)
+					moveRight.y *= -1.0f;
+			}
+			knockbackDir = (lrDirection_ == LRDirection::kRight) ? -moveRight : moveRight;
+		} else {
+			knockbackDir = Normalize(knockbackDir);
+		}
+
+		// 現在の重力から「上方向」と「水平方向」を正しく設定
+		KamataEngine::Vector3 moveUp = {0.0f, 0.0f, 0.0f};
+		if (gravity_.y != 0) { // 通常の上下重力
+			moveUp = (gravity_.y < 0) ? KamataEngine::Vector3{0.0f, 1.0f, 0.0f} : KamataEngine::Vector3{0.0f, -1.0f, 0.0f};
+			// 水平方向はX軸だけにする
+			knockbackDir.y = 0;
+			if (Length(knockbackDir) > 0.001f)
+				knockbackDir = Normalize(knockbackDir);
+
+		} else if (gravity_.x != 0) { // 横向き重力
+			moveUp = (gravity_.x < 0) ? KamataEngine::Vector3{1.0f, 0.0f, 0.0f} : KamataEngine::Vector3{-1.0f, 0.0f, 0.0f};
+			// 水平方向はY軸だけにする
+			knockbackDir.x = 0;
+			if (Length(knockbackDir) > 0.001f)
+				knockbackDir = Normalize(knockbackDir);
+		}
+
+		// 最終的なノックバック速度を合成して設定
+		velocity_ = (knockbackDir * kKnockbackHorizontalPower) + (moveUp * kKnockbackVerticalPower);
+
+		// ノックバック中は強制的に空中状態にする
+		onGround_ = false;
+	}
 }
 
 void Player::Initialize(KamataEngine::Model* model, uint32_t textureHandle, KamataEngine::Camera* camera, const KamataEngine::Vector3& position) {
@@ -689,13 +769,36 @@ void Player::Initialize(KamataEngine::Model* model, uint32_t textureHandle, Kama
 	isAttackBlocked_ = false;
 
 	// 生存状態で初期化
-	isDead_ = false;
+	isAlive_ = true;
+
+	// 無敵状態
+	isInvicible_ = false;
+
+	// HPを最大値で初期化
+	hp_ = kMaxHp;
+	// 無敵タイマーをリセット
+	invincibleTimer_ = 0.0f;
 }
 
 void Player::Update(const KamataEngine::Vector3& gravityVector, float cameraAngleZ) {
 
-	if (isDead_) {
+	if (!isAlive_) {
 		return;
+	}
+
+	// 現在の重力をメンバ変数に保存する
+	gravity_ = gravityVector;
+
+	// 被ダメージによる無敵時間の更新
+	if (invincibleTimer_ > 0.0f) {
+		invincibleTimer_ -= 1.0f / 60.0f; // 1/60秒ずつ減らす
+		// タイマーが0以下になったら
+		if (invincibleTimer_ <= 0.0f) {
+			// 攻撃中でなければ無敵を解除する
+			if (!isAttacking_) {
+				isInvicible_ = false;
+			}
+		}
 	}
 
 	// 1. 攻撃の状態を更新し、攻撃による移動量を取得する
@@ -715,8 +818,17 @@ void Player::Update(const KamataEngine::Vector3& gravityVector, float cameraAngl
 
 void Player::Draw() {
 	// 死亡していたら以降の処理は行わない
-	if (isDead_) {
+	if (!isAlive_) {
 		return;
+	}
+
+	// 無敵時間中は点滅させる
+	// fmodは剰余を求める関数
+	if (invincibleTimer_ > 0) {
+		// 0.2秒ごとに表示/非表示を切り替える
+		if (fmod(invincibleTimer_, 0.2f) < 0.1f) {
+			return; // このフレームは描画しない
+		}
 	}
 
 	// DirectXCommonの取得
