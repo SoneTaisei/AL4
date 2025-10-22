@@ -148,9 +148,15 @@ void Enemy::Initialize(KamataEngine::Model* model, uint32_t textureHandle, Kamat
 	velocity_ = {-kWorkSpeed, 0.0f, 0.0f};
 
 	workTimer_ = 0.0f;
+
+	isAlive_ = true;
 }
 
 void Enemy::Update() {
+
+	if (!isAlive_) {
+		return;
+	}
 
 	// --- 1. 重力と移動 ---
 	if (onGround_) {
@@ -227,6 +233,9 @@ void Enemy::Update() {
 }
 
 void Enemy::Draw() {
+	if (!isAlive_) {
+		return;
+	}
 	// DirectXCommonの取得
 	KamataEngine::DirectXCommon* dxCommon = KamataEngine::DirectXCommon::GetInstance();
 

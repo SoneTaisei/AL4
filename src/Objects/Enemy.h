@@ -65,6 +65,8 @@ private:
 	// 角
 	enum Corner { kRightBottom, kLeftBottom, kRightTop, kLeftTop, kNumCorner };
 
+	bool isAlive_ = false;
+
 	/// <summary>
 	/// 指定した角の座標を計算
 	/// </summary>
@@ -134,4 +136,8 @@ public:
 	void OnCollision(const Player* player);
 
 	const KamataEngine::WorldTransform& GetWorldTransform() const { return worldTransform_; }
+
+	bool GetIsAlive() const { return isAlive_; }
+
+	void SetIsAlive(bool isAlive) { isAlive_ = isAlive; }
 };

@@ -1,15 +1,15 @@
 #include "GameScene.h"
-#include "Effects/Fade.h"
-#include "System/CameraController.h"
 #include "Effects/DeathParticles.h"
-#include "Objects/Enemy.h"
-#include "System/MapChipField.h"
-#include "Objects/Player.h"
+#include "Effects/Fade.h"
 #include "Effects/Skydome.h"
+#include "Objects/Enemy.h"
+#include "Objects/Goal.h"
+#include "Objects/Player.h"
+#include "System/CameraController.h"
+#include "System/MapChipField.h"
 #include "Utils/TransformUpdater.h"
 #include <Windows.h> // OutputDebugStringA を使うために必要
 #include <cstdio>    // sprintf_s を使うために必要
-#include "Objects/Goal.h"
 
 using namespace KamataEngine;
 
@@ -82,7 +82,7 @@ void GameScene::Initialize(int stageNo) {
 	// パーティクルのモデル生成
 	particleModel_ = Model::CreateFromOBJ("AL3_Particle", true);
 	// ゴールのモデル生成
-	goalModel_ = Model::CreateFromOBJ("AL3_Particle",true);
+	goalModel_ = Model::CreateFromOBJ("AL3_Particle", true);
 
 	// 座標変換の初期化
 	worldTransform_.Initialize();
@@ -97,8 +97,7 @@ void GameScene::Initialize(int stageNo) {
 	std::string mapFileName = "Resources/stage/stage" + std::to_string(stageNo) + ".csv";
 	mapChipField_->LoadMapChipCsv(mapFileName);
 
-	
-Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 9);
+	Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 9);
 	switch (stageNo) {
 	case 1:
 		playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 10);
@@ -244,9 +243,9 @@ void GameScene::Update() {
 
 		// プレイヤーの更新（計算した重力ベクトルを渡す）
 		player_->Update(gravityVector, cameraTargetAngleZ_);
-		
+
 		goal_->Update();
-		
+
 		for (Enemy* enemy : enemies_) {
 			enemy->Update();
 		}
@@ -275,8 +274,6 @@ void GameScene::Update() {
 	}
 
 	// --- 以下は両方のフェーズで共通して行う処理 ---
-
-	
 
 	// ブロックの更新
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
@@ -412,24 +409,47 @@ void GameScene::CheckAllCollisions() {
 	AABB aabb1, aabb2;
 
 #pragma region 自キャラと敵キャラの当たり判定
-	// 自キャラのAABBを取得
-	aabb1 = player_->GetAABB();
+	if (player_->GetIsInvicible() == false) {
+		// 自キャラのAABBを取得
+		aabb1 = player_->GetAABB();
 
-	// 自キャラと敵全ての当たり判定
-	for (Enemy* enemy : enemies_) {
-		// 敵のAABBを取得
-		aabb2 = enemy->GetAABB();
+		// 自キャラと敵全ての当たり判定
+		for (Enemy* enemy : enemies_) {
+			if (player_->GetIsAlive() && enemy->GetIsAlive()) {
+				// 敵のAABBを取得
+				aabb2 = enemy->GetAABB();
 
-		// AABB同士の交差判定
-		if (IsColliding(aabb1, aabb2)) {
-			// 衝突応答
-			player_->OnCollision(enemy); //
-			enemy->OnCollision(player_); //
+				// AABB同士の交差判定
+				if (IsColliding(aabb1, aabb2)) {
+					// 衝突応答
+					player_->OnCollision(enemy); //
+					enemy->OnCollision(player_); //
+				}
+			}
 		}
 	}
 #pragma endregion
 
-	#pragma region 自キャラとゴールの当たり判定
+#pragma region 攻撃状態の自キャラと敵キャラの当たり判定
+	if (player_->GetIsAttacking() == true) {
+		// 自キャラのAABBを取得
+		aabb1 = player_->GetAABB();
+
+		// 自キャラと敵全ての当たり判定
+		for (Enemy* enemy : enemies_) {
+			// 敵のAABBを取得
+			aabb2 = enemy->GetAABB();
+
+			// AABB同士の交差判定
+			if (IsColliding(aabb1, aabb2)) {
+				// 衝突応答
+				enemy->SetIsAlive(false); //
+			}
+		}
+	}
+#pragma endregion
+
+#pragma region 自キャラとゴールの当たり判定
 	// 自キャラのAABBを取得
 	aabb1 = player_->GetAABB();
 	// ゴールのAABBを取得
@@ -451,7 +471,7 @@ void GameScene::ChangePhase() {
 	case Phase::kPlay:
 		// ゲームプレイフェーズの切り替え処理
 		// 条件：自キャラがデス状態になったら
-		if (player_->IsDead()) {
+		if (!player_->GetIsAlive()) {
 			// 処理１：死亡演出フェーズに切り替え
 			phase_ = Phase::kDeath;
 			// 処理２：自キャラの座標にデスパーティクルを発生、初期化

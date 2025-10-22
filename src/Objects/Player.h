@@ -99,7 +99,29 @@ private:
 	MapChipField* mapChipFiled_ = nullptr;
 
 	// 死亡フラグ
-	bool isDead_ = false;
+	bool isAlive_ = false;
+
+	// 無敵
+	bool isInvicible_ = false;
+
+	// ノックバックの強さ
+	static inline const float kKnockbackHorizontalPower = 0.3f; // 水平方向の強さ
+	static inline const float kKnockbackVerticalPower = 0.2f;   // 少し上に跳ねる強さ
+
+	// 現在の重力ベクトル
+	KamataEngine::Vector3 gravity_ = { 0.0f, -kGravityAcceleration, 0.0f };
+
+	// HP
+	int hp_ = 0;
+	static inline const int kMaxHp = 3; // 最大HP
+
+	// ダメージ量
+	static inline const int kDamageFromEnemy = 1;
+
+	// 無敵時間タイマー
+	float invincibleTimer_ = 0.0f;
+	// 無敵時間 <秒>
+	static inline const float kInvincibleDuration = 2.0f;
 
 	// 角
 	enum Corner {
@@ -123,7 +145,6 @@ private:
 	/// </summary>
 	void Attack(const KamataEngine::Vector3& gravityVector);
 
-	// ★★★ 以下を追加 ★★★
 	/// <summary>
 	/// 衝突を考慮しながら指定された量だけ移動する
 	/// </summary>
@@ -234,8 +255,18 @@ public:
 	/// <param name="enemy">衝突相手の敵</param>
 	void OnCollision(const Enemy* enemy);
 
+	/// <summary>
+	/// HPを取得する
+	/// </summary>
+	int GetHp() const { return hp_; }
+
 	// 死亡状態を取得する
-	bool IsDead() const { return isDead_; }
+	bool GetIsAlive() const { return isAlive_; }
+
+	// 無敵状態を取得する
+	bool GetIsInvicible() const { return isInvicible_; }
+
+	bool GetIsAttacking() const { return isAttacking_; }
 
 	// public にゲッターを追加
 	static float GetGravityAcceleration() { return kGravityAcceleration; }
