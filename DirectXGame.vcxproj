@@ -200,6 +200,7 @@
     <ClInclude Include="src\Scenes\TitleScene.h" />
     <ClInclude Include="src\Utils\TransformUpdater.h" />
     <ClInclude Include="src\Utils\VectorMath.h" />
+    <ClInclude Include="src\UI\UI.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\System\CameraController.cpp" />
@@ -216,6 +217,7 @@
     <ClCompile Include="src\Scenes\StageSelectScene.cpp" />
     <ClCompile Include="src\Scenes\TitleScene.cpp" />
     <ClCompile Include="src\Utils\TransformUpdater.cpp" />
+    <ClCompile Include="src\UI\UI.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
