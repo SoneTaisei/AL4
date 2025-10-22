@@ -52,6 +52,7 @@ public:
 	void Update();
 	void Draw();
 
-	bool IsFinished() const { return finished_; }
+	bool GetIsFinished() const { return finished_; }
+	void SetIsFinished(bool finished) { finished_ = finished; }
 	int GetSelectedStageNo() const { return selectedStageIndex_ + 1; }
 };

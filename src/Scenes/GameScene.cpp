@@ -269,7 +269,10 @@ void GameScene::Update() {
 		}
 		break;
 	case Phase::kFadeOut: // フェードアウト処理
-		Reset();
+		fade_->Update();
+		if (fade_->IsFinished()) {
+			finished_ = true;
+		}
 		break;
 	}
 

@@ -142,6 +142,7 @@ public:
 	~GameScene();
 
 	// 終了したかを取得する
-	bool IsFinished() const { return finished_; }
+	bool GetIsFinished() const { return finished_; }
+	void SetIsFinished(bool finished) { finished_ = finished; }
 
 };

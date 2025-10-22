@@ -1,5 +1,5 @@
-#include "Scenes/GameScene.h"
 #include "KamataEngine.h"
+#include "Scenes/GameScene.h"
 #include "Scenes/StageSelectScene.h"
 #include "Scenes/TitleScene.h"
 #include <Windows.h>
@@ -24,11 +24,42 @@ GameScene* gameScene = nullptr;
 // ★★★ 新しいグローバル関数を追加 ★★★
 // ==================================================
 
+void ForceChangeScene(Scene next) {
+	// 現在のシーンインスタンスをすべて安全に解放
+	delete titleScene;
+	titleScene = nullptr;
+	delete stageSelectScene;
+	stageSelectScene = nullptr;
+	delete gameScene;
+	gameScene = nullptr;
+
+	// グローバルのシーン変数を更新
+	scene = next;
+
+	// 新しいシーンを初期化
+	switch (scene) {
+	case Scene::kTitle:
+		titleScene = new TitleScene();
+		titleScene->Initialize();
+		break;
+	case Scene::kStageSelect:
+		stageSelectScene = new StageSelectScene();
+		stageSelectScene->Initialize();
+		break;
+	case Scene::kGame:
+		gameScene = new GameScene();
+		// GameSceneの初期化にはステージ番号が必須なため、
+		// デバッグ用にステージ1を仮で指定します。
+		gameScene->Initialize(1);
+		break;
+	}
+}
+
 // シーン切り替え処理
 void ChangeScene() {
 	switch (scene) {
 	case Scene::kTitle:
-		if (titleScene && titleScene->IsFinished()) {
+		if (titleScene && titleScene->GetIsFinished()) {
 			delete titleScene;
 			titleScene = nullptr;
 
@@ -40,7 +71,7 @@ void ChangeScene() {
 		break;
 
 	case Scene::kStageSelect: // ★ステージセレクトのケースを追加
-		if (stageSelectScene && stageSelectScene->IsFinished()) {
+		if (stageSelectScene && stageSelectScene->GetIsFinished()) {
 			// 選択されたステージ番号を取得
 			int stageNo = stageSelectScene->GetSelectedStageNo();
 
@@ -55,16 +86,10 @@ void ChangeScene() {
 		break;
 
 	case Scene::kGame:
-		if (gameScene && gameScene->IsFinished()) {
+		if (gameScene && gameScene->GetIsFinished()) {
 			delete gameScene;
 			gameScene = nullptr;
 
-			// 変更前（おそらくこうなっているはず）：
-			// titleScene = new TitleScene();
-			// titleScene->Initialize();
-			// scene = Scene::kTitle;
-
-			// ★★★ 変更後 ★★★
 			// ステージセレクトに戻るようにする
 			stageSelectScene = new StageSelectScene();
 			stageSelectScene->Initialize();
@@ -104,7 +129,6 @@ void DrawScene() {
 	}
 }
 
-// Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
 	/*********************************************************
@@ -117,17 +141,16 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	/*********************************************************
 	 *シーンの初期化
 	 *********************************************************/
-	// 最初のシーンをタイトルに設定
 	scene = Scene::kTitle;
-	// ローカル変数ではなく、グローバルのポインタを使う
 	titleScene = new TitleScene();
 	titleScene->Initialize();
-	int nextScene = 0;
+
+	// 初期シーンがkTitle (enum値=1) なので、インデックスは0に設定します。
+	static int selectedSceneIndex = 0;
 
 	/*********************************************************
 	 *メインループ
 	 *********************************************************/
-
 	while (true) {
 		// エンジンの更新
 		if (Update()) {
@@ -136,27 +159,34 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
 		imguiManager->Begin();
 
-		// ==================================================
-		// ★★★ ここからImGuiのデバッグ用UIを追加 ★★★
-		// ==================================================
+#ifdef _DEBUG
+		/*********************************************************
+		 *ImGuiデバッグ用UI
+		 *********************************************************/
 		ImGui::Begin("Scene Controller");
 
-		// シーン一覧のコンボボックスを表示するための準備
 		const char* sceneItems[] = {"Title", "Stage Select", "Game"};
-		// 現在のシーンenum値からコンボボックスのインデックスを計算
-		// (enumのkTitleが1から始まっていることを想定)
 
-		ImGui::Combo("Scene", &nextScene, sceneItems, IM_ARRAYSIZE(sceneItems));
+		// ImGuiのコンボボックスに永続的な変数(static変数)を渡す。
+		// これにより、ユーザーの選択が正しく保持されるようになります。
+		ImGui::Combo("Scene", &selectedSceneIndex, sceneItems, IM_ARRAYSIZE(sceneItems));
 
 		// 「Change Scene」ボタンが押されたらシーンを強制的に切り替える
 		if (ImGui::Button("Change Scene")) {
-			// 選択されたインデックスから次のシーンのenum値を取得
-			scene = Scene(nextScene+1);
+			// 選択されているインデックスから、切り替えたいシーンのenum値を取得
+			Scene nextScene = static_cast<Scene>(selectedSceneIndex + 1);
+
+			// 現在のシーンと選択されたシーンが異なる場合のみ、切り替え処理を実行
+			if (scene != nextScene) {
+				ForceChangeScene(nextScene);
+			}
 		}
 		ImGui::End();
+#endif // _DEBUG
 
-		// 1. シーン切り替え
+		// 1. シーン切り替え (ゲームプレイによる自然な遷移)
 		ChangeScene();
+
 		// 2. 現在シーンの更新
 		UpdateScene();
 
@@ -175,9 +205,8 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	/*********************************************************
 	 *解放処理
 	 *********************************************************/
-
-	// ゲームを終了したらタイトルシーンを開放
 	delete titleScene;
+	delete stageSelectScene;
 	delete gameScene;
 
 	// エンジンを終了させる処理
