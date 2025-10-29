@@ -108,6 +108,11 @@ private:
 	// UIの初期化
 	UI *UI_ = nullptr;
 
+	// ポーズ制御フラグ（追加）
+	bool isPaused_ = false;
+	// 操作確認表示フラグ（追加）
+	bool showControls_ = false;
+
 	/// <summary>
 	/// 全ての当たり判定を行う
 	/// </summary>

@@ -11,6 +11,7 @@
 #include <Windows.h> // OutputDebugStringA を使うために必要
 #include <cstdio>    // sprintf_s を使うために必要
 #include"UI/UI.h"
+#include <imgui.h>
 
 using namespace KamataEngine;
 
@@ -223,6 +224,15 @@ void GameScene::Initialize(int stageNo) {
 
 void GameScene::Update() {
 
+	// ポーズ切替（ESC）
+	if (Input::GetInstance()->TriggerKey(DIK_ESCAPE)) {
+		isPaused_ = !isPaused_;
+		if (!isPaused_) {
+			// ポーズ解除時に操作確認ウィンドウを閉じる
+			showControls_ = false;
+		}
+	}
+
 	// --- フェーズごとの処理 ---
 	switch (phase_) {
 	case Phase::kFadeIn: // フェードイン処理
@@ -234,6 +244,27 @@ void GameScene::Update() {
 		break;
 
 	case Phase::kPlay: {
+
+		// ポーズ中はゲームプレイ更新を停止してImGuiでメニュー表示
+		if (isPaused_) {
+			ImGui::Begin("ポーズメニュー");
+			ImGui::Text("ポーズ中");
+			if (ImGui::Button("操作確認")) {
+				showControls_ = !showControls_;
+			}
+			if (showControls_) {
+				ImGui::Separator();
+				ImGui::TextWrapped("操作方法:\n← → : 移動\nSPACE : ジャンプ\nR : リセット\nESC : ポーズ切替");
+			}
+			if (ImGui::Button("ステージセレクトに戻る")) {
+				// 現在のシーンを終了させてメインのシーン管理でステージセレクトに戻るようにする
+				finished_ = true;
+			}
+			ImGui::End();
+
+			// ポーズ中は以降のゲーム更新をスキップする（ただし共通処理は続ける）
+			break;
+		}
 
 		// リセット処理を追加
 		if (Input::GetInstance()->TriggerKey(DIK_R)) {
