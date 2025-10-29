@@ -10,6 +10,7 @@
 #include "Utils/TransformUpdater.h"
 #include <Windows.h> // OutputDebugStringA を使うために必要
 #include <cstdio>    // sprintf_s を使うために必要
+#include"UI/UI.h"
 
 using namespace KamataEngine;
 
@@ -215,6 +216,9 @@ void GameScene::Initialize(int stageNo) {
 
 	// 終了フラグを初期化
 	finished_ = false;
+
+	UI_ = new UI;
+	UI_->Initialize();
 }
 
 void GameScene::Update() {
@@ -339,6 +343,8 @@ void GameScene::Update() {
 
 		camera_.TransferMatrix();
 	}
+
+	UI_->Update();
 }
 
 void GameScene::Draw() {
@@ -379,6 +385,8 @@ void GameScene::Draw() {
 
 	// フェードの描画
 	fade_->Draw();
+
+	UI_->Draw(player_);
 }
 
 void GameScene::GenerateBlocks() {

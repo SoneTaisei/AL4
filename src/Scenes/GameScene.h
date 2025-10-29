@@ -10,6 +10,7 @@ class MapChipField;
 class CameraController;
 class DeathParticles;
 class Goal;
+class UI;
 
 /* ゲームシーン*/
 class GameScene {
@@ -103,6 +104,9 @@ private:
 
 	// 終了フラグ
 	bool finished_ = false;
+
+	// UIの初期化
+	UI *UI_ = nullptr;
 
 	/// <summary>
 	/// 全ての当たり判定を行う
