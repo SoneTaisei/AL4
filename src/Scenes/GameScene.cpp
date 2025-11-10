@@ -2,15 +2,16 @@
 #include "Effects/DeathParticles.h"
 #include "Effects/Fade.h"
 #include "Effects/Skydome.h"
+#include "HUD/HUD.h"
 #include "Objects/Enemy.h"
 #include "Objects/Goal.h"
 #include "Objects/Player.h"
 #include "System/CameraController.h"
 #include "System/MapChipField.h"
+#include "UI/UI.h"
 #include "Utils/TransformUpdater.h"
 #include <Windows.h> // OutputDebugStringA を使うために必要
 #include <cstdio>    // sprintf_s を使うために必要
-#include"UI/UI.h"
 #include <imgui.h>
 
 using namespace KamataEngine;
@@ -220,6 +221,9 @@ void GameScene::Initialize(int stageNo) {
 
 	UI_ = new UI;
 	UI_->Initialize();
+
+	HUD_ = new HUD;
+	HUD_->Initialize();
 }
 
 void GameScene::Update() {
@@ -247,8 +251,34 @@ void GameScene::Update() {
 
 		// ポーズ中はゲームプレイ更新を停止してImGuiでメニュー表示
 		if (isPaused_) {
+			// キーボードによる選択操作（上下で選択）
+			if (Input::GetInstance()->TriggerKey(DIK_W)) {
+				pauseMenuIndex_ = (pauseMenuIndex_ + GameScene::kPauseMenuCount - 1) % GameScene::kPauseMenuCount;
+			}
+			if (Input::GetInstance()->TriggerKey(DIK_S)) {
+				pauseMenuIndex_ = (pauseMenuIndex_ + 1) % GameScene::kPauseMenuCount;
+			}
+			// 決定（SPACE または Enter）
+			if (Input::GetInstance()->TriggerKey(DIK_SPACE) || Input::GetInstance()->TriggerKey(DIK_RETURN)) {
+				if (pauseMenuIndex_ == 0) {
+					// リスタート
+					Reset();
+					isPaused_ = false;
+					showControls_ = false;
+					// Reset() 内でフェード等を開始しているためここで処理を抜ける
+					return;
+				} else if (pauseMenuIndex_ == 1) {
+					// ステージセレクトへ戻る
+					finished_ = true;
+				}
+			}
+
+#ifdef _DEBUG
+
+			// ImGui メニュー表示（マウス操作にも対応）
 			ImGui::Begin("ポーズメニュー");
 			ImGui::Text("ポーズ中");
+			// 操作確認トグルはそのまま残す
 			if (ImGui::Button("操作確認")) {
 				showControls_ = !showControls_;
 			}
@@ -256,12 +286,27 @@ void GameScene::Update() {
 				ImGui::Separator();
 				ImGui::TextWrapped("操作方法:\n← → : 移動\nSPACE : ジャンプ\nR : リセット\nESC : ポーズ切替");
 			}
-			if (ImGui::Button("ステージセレクトに戻る")) {
-				// 現在のシーンを終了させてメインのシーン管理でステージセレクトに戻るようにする
+			ImGui::Separator();
+			ImGui::Text("↑/↓ で選択, SPACE/Enter で決定");
+
+			// 選択肢を表示。Selectableを使ってマウスクリックにも対応
+			if (ImGui::Selectable("1: リスタート", pauseMenuIndex_ == 0)) {
+				pauseMenuIndex_ = 0;
+				Reset();
+				isPaused_ = false;
+				showControls_ = false;
+				// Reset() の直後は更新を中止する
+				ImGui::End();
+				return;
+			}
+			if (ImGui::Selectable("2: ステージセレクトに戻る", pauseMenuIndex_ == 1)) {
+				pauseMenuIndex_ = 1;
 				finished_ = true;
 			}
+
 			ImGui::End();
 
+#endif // DEBUG
 			// ポーズ中は以降のゲーム更新をスキップする（ただし共通処理は続ける）
 			break;
 		}
@@ -375,7 +420,10 @@ void GameScene::Update() {
 		camera_.TransferMatrix();
 	}
 
-	UI_->Update();
+	HUD_->Update();
+	if (isPaused_) {
+		UI_->Update();
+	}
 }
 
 void GameScene::Draw() {
@@ -417,7 +465,10 @@ void GameScene::Draw() {
 	// フェードの描画
 	fade_->Draw();
 
-	UI_->Draw(player_);
+	HUD_->Draw(player_);
+	if (isPaused_) {
+		UI_->Draw(pauseMenuIndex_);
+	}
 }
 
 void GameScene::GenerateBlocks() {

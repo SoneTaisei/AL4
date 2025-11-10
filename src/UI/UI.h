@@ -9,10 +9,14 @@ public:
 
 	void Update();
 
-	void Draw(const Player* player);
+	void Draw(int pauseMenuIndex);
 
 private:
-	uint32_t hpHandle_;
-	KamataEngine::Sprite* hpSprite_[3] = {};
-	KamataEngine::Vector2 hpSpritePosition_[3] = {};
+	uint32_t pausdHandle_;
+	uint32_t backGroundHnadle_;
+	uint32_t arrowHnadle_;
+	KamataEngine::Sprite* pausdSprite_ = {};
+	KamataEngine::Sprite* backGroundSprite_ = {};
+	KamataEngine::Sprite* arrowSprite_ = {};
+	KamataEngine::Vector2 pausdSpritePosition_ = {};
 };

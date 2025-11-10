@@ -181,6 +181,7 @@
     <None Include="Resources\shaders\Sprite.hlsli" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\HUD\HUD.h" />
     <ClInclude Include="src\Scenes\BaseScene.h" />
     <ClInclude Include="src\System\CameraController.h" />
     <ClInclude Include="src\System\Collision.h" />
@@ -203,6 +204,7 @@
     <ClInclude Include="src\UI\UI.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\HUD\HUD.cpp" />
     <ClCompile Include="src\System\CameraController.cpp" />
     <ClCompile Include="src\Effects\DeathParticles.cpp" />
     <ClCompile Include="src\Utils\Easing.cpp" />

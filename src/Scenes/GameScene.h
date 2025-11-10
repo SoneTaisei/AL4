@@ -11,6 +11,7 @@ class CameraController;
 class DeathParticles;
 class Goal;
 class UI;
+class HUD;
 
 /* ゲームシーン*/
 class GameScene {
@@ -105,13 +106,21 @@ private:
 	// 終了フラグ
 	bool finished_ = false;
 
-	// UIの初期化
-	UI *UI_ = nullptr;
+	// HUDの初期化
+	HUD *HUD_ = nullptr;
+
+	// HUDの初期化
+	UI* UI_ = nullptr;
+
 
 	// ポーズ制御フラグ（追加）
 	bool isPaused_ = false;
 	// 操作確認表示フラグ（追加）
 	bool showControls_ = false;
+
+	// --- ポーズメニュー選択用 ---
+	int pauseMenuIndex_ = 0; // 0: リスタート, 1: ステージセレクトに戻る
+	static inline const int kPauseMenuCount = 2;
 
 	/// <summary>
 	/// 全ての当たり判定を行う
