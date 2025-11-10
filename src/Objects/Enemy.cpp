@@ -95,8 +95,8 @@ void Enemy::MapCollisionRight(CollisionMapInfo& info) {
 	Vector3 rightBottomCheck = centerNew + Vector3{kWidth / 2.0f, -checkHeight / 2.0f, 0.0f};
 	MapChipField::IndexSet indexSetTop = mapChipField_->GetMapChipIndexSetByPosition(rightTopCheck);
 	MapChipField::IndexSet indexSetBottom = mapChipField_->GetMapChipIndexSetByPosition(rightBottomCheck);
-	if ((mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ||
-	    (mapChipField_->GetMapChipTypeByIndex(indexSetBottom.xIndex, indexSetBottom.yIndex) == MapChipType::kBlock)) {
+	if (((mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ||
+	     (mapChipField_->GetMapChipTypeByIndex(indexSetBottom.xIndex, indexSetBottom.yIndex) == MapChipType::kBlock)) &&lrDirection_ == LRDirection::kRight) {
 		info.isWallContact = true;
 		MapChipField::IndexSet indexSet = (mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ? indexSetTop : indexSetBottom;
 		MapChipField::Rect blockRect = mapChipField_->GetRectByIndex(indexSet.xIndex, indexSet.yIndex);
@@ -114,8 +114,8 @@ void Enemy::MapCollisionLeft(CollisionMapInfo& info) {
 	Vector3 leftBottomCheck = centerNew + Vector3{-kWidth / 2.0f, -checkHeight / 2.0f, 0.0f};
 	MapChipField::IndexSet indexSetTop = mapChipField_->GetMapChipIndexSetByPosition(leftTopCheck);
 	MapChipField::IndexSet indexSetBottom = mapChipField_->GetMapChipIndexSetByPosition(leftBottomCheck);
-	if ((mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ||
-	    (mapChipField_->GetMapChipTypeByIndex(indexSetBottom.xIndex, indexSetBottom.yIndex) == MapChipType::kBlock)) {
+	if (((mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ||
+	    (mapChipField_->GetMapChipTypeByIndex(indexSetBottom.xIndex, indexSetBottom.yIndex) == MapChipType::kBlock))&&lrDirection_==LRDirection::kLeft) {
 		info.isWallContact = true;
 		MapChipField::IndexSet indexSet = (mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ? indexSetTop : indexSetBottom;
 		MapChipField::Rect blockRect = mapChipField_->GetRectByIndex(indexSet.xIndex, indexSet.yIndex);
@@ -228,6 +228,7 @@ void Enemy::Update() {
 			// 旋回アニメーションの準備
 			turnFirstRotationY_ = worldTransform_.rotation_.y;
 			turnTimer_ = 0.0f;
+			infoX.move.x = 0.0f;
 		}
 	}
 	worldTransform_.translation_.x += infoX.move.x;

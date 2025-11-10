@@ -10,6 +10,9 @@ namespace {
 std::map<std::string, MapChipType> mapChipTable = {
     {"0", MapChipType::kBlank},
     {"1", MapChipType::kBlock},
+    {"2", MapChipType::kPlayerStart}, // 追加: CSVの"2"をプレイヤー出現ポイントにマップ
+    {"3", MapChipType::kEnemy},       // 追加: CSVの"3"を敵出現ポイントにマップ
+    {"4", MapChipType::kChasingEnemy}, // 追加: CSVの"4"を追尾する敵にマップ
 };
 }
 
@@ -19,6 +22,10 @@ void MapChipField::ResetMapChipData() {
 	mapChipData_.data.resize(kNumBlockVirtical);
 	for (std::vector<MapChipType>& mapChipDataLine : mapChipData_.data) {
 		mapChipDataLine.resize(kNumBlockHorizontal);
+		// デフォルトは空白にしておく
+		for (MapChipType& t : mapChipDataLine) {
+			t = MapChipType::kBlank;
+		}
 	}
 }
 
@@ -113,4 +120,18 @@ MapChipField::Rect MapChipField::GetRectByIndex(uint32_t xIndex, uint32_t yIndex
 	rect.top = center.y + kBlockHeight / 2.0f;    // 上端は中心 + 半高さ
 
 	return rect;
+}
+
+// 指定タイプの最初のマップチップインデックスを探す実装
+bool MapChipField::FindFirstIndexByType(MapChipType type, IndexSet& outIndex) {
+	for (uint32_t y = 0; y < kNumBlockVirtical; ++y) {
+		for (uint32_t x = 0; x < kNumBlockHorizontal; ++x) {
+			if (mapChipData_.data[y][x] == type) {
+				outIndex.xIndex = x;
+				outIndex.yIndex = y;
+				return true;
+			}
+		}
+	}
+	return false;
 }

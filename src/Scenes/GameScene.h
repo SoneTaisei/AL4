@@ -5,6 +5,7 @@
 
 class Player;
 class Enemy;
+class ChasingEnemy;
 class Skydome;
 class MapChipField;
 class CameraController;
@@ -45,6 +46,7 @@ private:
 	uint32_t uvCheckerTextureHandle_ = 0;
 	uint32_t playerTextureHandle_ = 0;
 	uint32_t enemyTextureHandle_ = 0;
+	uint32_t chasingEnemyTextureHandle_ = 0;
 	uint32_t skysphereTextureHandle = 0;
 	uint32_t particleTextureHandle = 0;
 
@@ -56,6 +58,8 @@ private:
 	KamataEngine::Model* playerModel_ = nullptr;
 	// 敵の3Dモデル
 	KamataEngine::Model* enemyModel_ = nullptr;
+	// 追尾する敵の3Dモデル
+	KamataEngine::Model* chasingEnemyModel_ = nullptr;
 	// パーティクルのモデル
 	KamataEngine::Model* particleModel_ = nullptr;
 
@@ -77,6 +81,8 @@ private:
 
 	// 敵キャラ
 	std::list<Enemy*> enemies_;
+	// 追尾する敵キャラ
+	std::list<ChasingEnemy*> chasingEnemies_;
 
 	// 天球
 	Skydome* skydome_ = nullptr;

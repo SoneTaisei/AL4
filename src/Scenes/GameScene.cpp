@@ -4,6 +4,7 @@
 #include "Effects/Skydome.h"
 #include "HUD/HUD.h"
 #include "Objects/Enemy.h"
+#include "Objects/ChasingEnemy.h"
 #include "Objects/Goal.h"
 #include "Objects/Player.h"
 #include "System/CameraController.h"
@@ -31,8 +32,14 @@ bool IsColliding(const AABB& aabb1, const AABB& aabb2) {
 
 void GameScene::Reset() {
 	// プレイヤーの初期化
-	// プレイヤーの初期座標をマップから取得
-	Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 9);
+	// マップ上に '2' (kPlayerStart) があればそこを優先して初期座標とする
+	Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 9); // フォールバック
+
+	MapChipField::IndexSet startIdx;
+	if (mapChipField_->FindFirstIndexByType(MapChipType::kPlayerStart, startIdx)) {
+		playerPosition = mapChipField_->GetMapChipPositionByIndex(startIdx.xIndex, startIdx.yIndex);
+	}
+
 	player_->Initialize(playerModel_, playerTextureHandle_, &camera_, playerPosition);
 	player_->SetMapChipField(mapChipField_); // マップチップフィールドを再設定
 
@@ -42,14 +49,34 @@ void GameScene::Reset() {
 		delete enemy;
 	}
 	enemies_.clear();
-	// 再度、敵を生成・初期化
-	const int kNumEnemies = 1;
-	for (int i = 0; i < kNumEnemies; ++i) {
-		Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(10 + i * 5, 9);
-		Enemy* newEnemy = new Enemy();
-		newEnemy->Initialize(enemyModel_, enemyTextureHandle_, &camera_, enemyPosition);
-		newEnemy->SetMapChipField(mapChipField_);
-		enemies_.push_back(newEnemy);
+
+	// 追尾する敵の初期化 ( <--- 追加 ここから)
+	// まず現在の追尾する敵を全て削除
+	for (ChasingEnemy* enemy : chasingEnemies_) {
+		delete enemy;
+	}
+	chasingEnemies_.clear(); // ( <--- 追加 ここまで)
+
+	// マップから敵を生成（CSVで'3'を指定したセル）
+	for (uint32_t y = 0; y < mapChipField_->GetNumBlockVirtical(); ++y) {
+		for (uint32_t x = 0; x < mapChipField_->GetNumBlockHorizontal(); ++x) {
+			if (mapChipField_->GetMapChipTypeByIndex(x, y) == MapChipType::kEnemy) {
+				Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(x, y);
+				Enemy* newEnemy = new Enemy();
+				newEnemy->Initialize(enemyModel_, enemyTextureHandle_, &camera_, enemyPosition);
+				newEnemy->SetMapChipField(mapChipField_);
+				newEnemy->SetSpawnIndex(mapChipField_->GetMapChipIndexSetByPosition(enemyPosition));
+				enemies_.push_back(newEnemy);
+			} else if (mapChipField_->GetMapChipTypeByIndex(x, y) == MapChipType::kChasingEnemy) { // <--- 追加 (ここから)
+				Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(x, y);
+				ChasingEnemy* newEnemy = new ChasingEnemy();
+				newEnemy->Initialize(chasingEnemyModel_, chasingEnemyTextureHandle_, &camera_, enemyPosition);
+				newEnemy->SetMapChipField(mapChipField_);
+				newEnemy->SetSpawnIndex(mapChipField_->GetMapChipIndexSetByPosition(enemyPosition));
+				newEnemy->SetTargetPlayer(player_); // プレイヤーをターゲットに設定
+				chasingEnemies_.push_back(newEnemy);
+			}
+		}
 	}
 
 	// カメラコントローラーのリセット
@@ -100,38 +127,45 @@ void GameScene::Initialize(int stageNo) {
 	std::string mapFileName = "Resources/stage/stage" + std::to_string(stageNo) + ".csv";
 	mapChipField_->LoadMapChipCsv(mapFileName);
 
-	Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 9);
-	switch (stageNo) {
-	case 1:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 10);
-		break;
-	case 2:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(2, 17);
-		break;
-	case 3:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
-		break;
-	case 4:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
-		break;
-	case 5:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
-		break;
-	case 6:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
-		break;
-	case 7:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
-		break;
-	case 8:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
-		break;
-	case 9:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
-		break;
-	case 10:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
-		break;
+	// まず CSV 中の '2' を探す (見つかればそこにスポーン)
+	Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 9); // フォールバック
+	MapChipField::IndexSet startIdx;
+	if (mapChipField_->FindFirstIndexByType(MapChipType::kPlayerStart, startIdx)) {
+		playerPosition = mapChipField_->GetMapChipPositionByIndex(startIdx.xIndex, startIdx.yIndex);
+	} else {
+		// 旧来のステージ別ハードコード位置は互換のため残す
+		switch (stageNo) {
+		case 1:
+			playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 10);
+			break;
+		case 2:
+			playerPosition = mapChipField_->GetMapChipPositionByIndex(2, 17);
+			break;
+		case 3:
+			playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+			break;
+		case 4:
+			playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+			break;
+		case 5:
+			playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+			break;
+		case 6:
+			playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+			break;
+		case 7:
+			playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+			break;
+		case 8:
+			playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+			break;
+		case 9:
+			playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+			break;
+		case 10:
+			playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+			break;
+		}
 	}
 
 	// 自キャラの生成
@@ -145,19 +179,18 @@ void GameScene::Initialize(int stageNo) {
 	// モデルはキューブ、テクスチャはuvChecker、座標は自キャラと同じものを仮で使う
 	deathParticles_->Initialize(particleModel_, particleTextureHandle, &camera_, playerPosition);
 
-	// 敵を複数生成する
-	const int kNumEnemies = 1; // 生成したい敵の数
-	for (int i = 0; i < kNumEnemies; ++i) {
-		// 敵の初期座標を設定 (ここでは例としてX座標をずらして配置)
-		Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(10 + i * 5, 9);
-
-		// 敵キャラの生成
-		Enemy* newEnemy = new Enemy();
-		// 敵キャラの初期化
-		newEnemy->Initialize(enemyModel_, enemyTextureHandle_, &camera_, enemyPosition);
-		newEnemy->SetMapChipField(mapChipField_);
-		// リストに追加
-		enemies_.push_back(newEnemy);
+	// 敵をマップチップから生成（CSVで'3'を指定したセル）
+	for (uint32_t y = 0; y < mapChipField_->GetNumBlockVirtical(); ++y) {
+		for (uint32_t x = 0; x < mapChipField_->GetNumBlockHorizontal(); ++x) {
+			if (mapChipField_->GetMapChipTypeByIndex(x, y) == MapChipType::kEnemy) {
+				Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(x, y);
+				Enemy* newEnemy = new Enemy();
+				newEnemy->Initialize(enemyModel_, enemyTextureHandle_, &camera_, enemyPosition);
+				newEnemy->SetMapChipField(mapChipField_);
+				newEnemy->SetSpawnIndex(mapChipField_->GetMapChipIndexSetByPosition(enemyPosition));
+				enemies_.push_back(newEnemy);
+			}
+		}
 	}
 
 	// 要素数
@@ -228,7 +261,7 @@ void GameScene::Initialize(int stageNo) {
 
 void GameScene::Update() {
 
-	// ポーズ切替（ESC）
+	// ポーズ切替（ESC）　
 	if (Input::GetInstance()->TriggerKey(DIK_ESCAPE)) {
 		isPaused_ = !isPaused_;
 		if (!isPaused_) {
@@ -258,7 +291,7 @@ void GameScene::Update() {
 			if (Input::GetInstance()->TriggerKey(DIK_S)) {
 				pauseMenuIndex_ = (pauseMenuIndex_ + 1) % GameScene::kPauseMenuCount;
 			}
-			// 決定（SPACE または Enter）
+			// 決定（SPACE または Enter）"
 			if (Input::GetInstance()->TriggerKey(DIK_SPACE) || Input::GetInstance()->TriggerKey(DIK_RETURN)) {
 				if (pauseMenuIndex_ == 0) {
 					// リスタート
@@ -327,6 +360,9 @@ void GameScene::Update() {
 		goal_->Update();
 
 		for (Enemy* enemy : enemies_) {
+			enemy->Update();
+		}
+		for (ChasingEnemy* enemy : chasingEnemies_) { // <--- 追加
 			enemy->Update();
 		}
 		cameraController_->Update();
@@ -450,6 +486,9 @@ void GameScene::Draw() {
 	for (Enemy* enemy : enemies_) {
 		enemy->Draw();
 	}
+	for (ChasingEnemy* enemy : chasingEnemies_) { // <--- 追加
+		enemy->Draw();
+	}
 
 	// デスパーティクルの描画
 	if (deathParticles_) {
@@ -515,7 +554,23 @@ void GameScene::CheckAllCollisions() {
 				// AABB同士の交差判定
 				if (IsColliding(aabb1, aabb2)) {
 					// 衝突応答
-					player_->OnCollision(enemy); //
+					player_->OnCollision(enemy->GetWorldTransform()); //
+					enemy->OnCollision(player_); //
+				}
+			}
+		}
+
+		// 自キャラと追尾する敵全ての当たり判定
+		for (ChasingEnemy* enemy : chasingEnemies_) {
+			if (player_->GetIsAlive() && enemy->GetIsAlive()) {
+				// 敵のAABBを取得
+				aabb2 = enemy->GetAABB();
+
+				// AABB同士の交差判定
+				if (IsColliding(aabb1, aabb2)) {
+					// 衝突応答
+					// Player側に OnCollision(ChasingEnemy*) の実装が別途必要になる可能性があります
+					player_->OnCollision(enemy->GetWorldTransform());
 					enemy->OnCollision(player_); //
 				}
 			}
@@ -530,6 +585,18 @@ void GameScene::CheckAllCollisions() {
 
 		// 自キャラと敵全ての当たり判定
 		for (Enemy* enemy : enemies_) {
+			// 敵のAABBを取得
+			aabb2 = enemy->GetAABB();
+
+			// AABB同士の交差判定
+			if (IsColliding(aabb1, aabb2)) {
+				// 衝突応答
+				enemy->SetIsAlive(false); //
+			}
+		}
+
+		// 自キャラと追尾する敵全ての当たり判定
+		for (ChasingEnemy* enemy : chasingEnemies_) {
 			// 敵のAABBを取得
 			aabb2 = enemy->GetAABB();
 
@@ -592,7 +659,11 @@ GameScene::~GameScene() {
 	delete modelSkydome_;
 	delete playerModel_;
 	delete goalModel_;
+	delete chasingEnemyModel_;
 	for (Enemy* enemy : enemies_) {
+		delete enemy;
+	}
+	for (ChasingEnemy* enemy : chasingEnemies_) {
 		delete enemy;
 	}
 
