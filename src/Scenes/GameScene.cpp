@@ -71,8 +71,6 @@ void GameScene::Reset() {
 				Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(x, y);
 				ChasingEnemy* newEnemy = new ChasingEnemy();
 				newEnemy->Initialize(chasingEnemyModel_, chasingEnemyTextureHandle_, &camera_, enemyPosition);
-				newEnemy->SetMapChipField(mapChipField_);
-				newEnemy->SetSpawnIndex(mapChipField_->GetMapChipIndexSetByPosition(enemyPosition));
 				newEnemy->SetTargetPlayer(player_); // プレイヤーをターゲットに設定
 				chasingEnemies_.push_back(newEnemy);
 			}
@@ -98,6 +96,7 @@ void GameScene::Initialize(int stageNo) {
 	uvCheckerTextureHandle_ = TextureManager::Load("uvChecker.png");
 	playerTextureHandle_ = TextureManager::Load("AL3_Player/Player.png");
 	enemyTextureHandle_ = TextureManager::Load("AL3_Enemy/Enemy.png");
+	chasingEnemyTextureHandle_ = TextureManager::Load("AL3_Player/Player.png");
 	skysphereTextureHandle = TextureManager::Load("skydome/AL_skysphere.png");
 	particleTextureHandle = TextureManager::Load("AL3_Particle/AL3_Particle.png");
 
@@ -109,6 +108,7 @@ void GameScene::Initialize(int stageNo) {
 	playerModel_ = Model::CreateFromOBJ("AL3_Player", true);
 	// 3Dモデルの生成
 	enemyModel_ = Model::CreateFromOBJ("AL3_Enemy", true);
+	chasingEnemyModel_ = Model::CreateFromOBJ("AL3_Player", true);
 	// パーティクルのモデル生成
 	particleModel_ = Model::CreateFromOBJ("AL3_Particle", true);
 	// ゴールのモデル生成
@@ -189,6 +189,13 @@ void GameScene::Initialize(int stageNo) {
 				newEnemy->SetMapChipField(mapChipField_);
 				newEnemy->SetSpawnIndex(mapChipField_->GetMapChipIndexSetByPosition(enemyPosition));
 				enemies_.push_back(newEnemy);
+			} else if (mapChipField_->GetMapChipTypeByIndex(x, y) == MapChipType::kChasingEnemy) {
+				Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(x, y);
+				ChasingEnemy* newEnemy = new ChasingEnemy();
+				// 修正: 正しいモデルとテクスチャハンドルを使用
+				newEnemy->Initialize(chasingEnemyModel_, chasingEnemyTextureHandle_, &camera_, enemyPosition);
+				newEnemy->SetTargetPlayer(player_); // プレイヤーをターゲットに設定
+				chasingEnemies_.push_back(newEnemy);
 			}
 		}
 	}

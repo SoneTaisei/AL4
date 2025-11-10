@@ -6,7 +6,6 @@
 
 // 循環参照を避けるための前方宣言
 class Player;
-class MapChipField;
 
 /// <summary>
 /// プレイヤーを追尾する敵
@@ -14,13 +13,6 @@ class MapChipField;
 class ChasingEnemy {
 private:
 	enum class LRDirection { kRight, kLeft };
-
-	struct CollisionMapInfo {
-		bool isCeilingHit = false;
-		bool isLanding = false;
-		bool isWallContact = false;
-		KamataEngine::Vector3 move;
-	};
 
 	LRDirection lrDirection_ = LRDirection::kLeft;
 
@@ -42,19 +34,7 @@ private:
 
 	KamataEngine::Vector3 velocity_ = {};
 
-	bool onGround_ = false;
-
-	static inline const float kGravityAcceleration = 0.02f;
-	static inline const float kLimitFallSpeed = 0.6f;
-
-	MapChipField* mapChipField_ = nullptr;
 	const Player* targetPlayer_ = nullptr;
-
-	// 追加: 生成時のマップインデックスを保存
-	MapChipField::IndexSet spawnIndex_{UINT32_MAX, UINT32_MAX};
-
-	// 角（当たり判定）
-	enum Corner { kRightBottom, kLeftBottom, kRightTop, kLeftTop, kNumCorner };
 
 	// 生存状態
 	enum class State { kAlive, kDying, kDead };
@@ -79,13 +59,6 @@ private:
 	static inline const float kWidth = 1.9f;
 	static inline const float kHeight = 1.9f;
 
-	// ユーティリティ
-	KamataEngine::Vector3 CornerPosition(const KamataEngine::Vector3 center, Corner corner);
-	void MapCollisionUp(CollisionMapInfo& info);
-	void MapCollisionDown(CollisionMapInfo& info);
-	void MapCollisionRight(CollisionMapInfo& info);
-	void MapCollisionLeft(CollisionMapInfo& info);
-
 	KamataEngine::Vector3 GetWorldPosition();
 
 public:
@@ -93,12 +66,7 @@ public:
 	void Update();
 	void Draw();
 
-	void SetMapChipField(MapChipField* mapChipField) { mapChipField_ = mapChipField; }
 	void SetTargetPlayer(const Player* player) { targetPlayer_ = player; }
-
-	// 追加: 生成時のマップインデックスをセット/取得
-	void SetSpawnIndex(const MapChipField::IndexSet& idx) { spawnIndex_ = idx; }
-	MapChipField::IndexSet GetSpawnIndex() const { return spawnIndex_; }
 
 	AABB GetAABB();
 	void OnCollision(const Player* player);
