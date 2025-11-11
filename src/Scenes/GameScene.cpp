@@ -3,8 +3,8 @@
 #include "Effects/Fade.h"
 #include "Effects/Skydome.h"
 #include "HUD/HUD.h"
-#include "Objects/Enemy.h"
 #include "Objects/ChasingEnemy.h"
+#include "Objects/Enemy.h"
 #include "Objects/Goal.h"
 #include "Objects/Player.h"
 #include "System/CameraController.h"
@@ -83,8 +83,8 @@ void GameScene::Reset() {
 	cameraTargetAngleZ_ = 0.0f; // カメラの目標角度もリセット
 
 	// ゴールの初期化
-	Vector3 goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
-	goal_->Initialize(goalModel_, goalPosition);
+	/*Vector3 goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
+	goal_->Initialize(goalModel_, goalPosition);*/
 
 	// フェーズをフェードインに戻す
 	phase_ = Phase::kFadeIn;
@@ -96,7 +96,7 @@ void GameScene::Initialize(int stageNo) {
 	uvCheckerTextureHandle_ = TextureManager::Load("uvChecker.png");
 	playerTextureHandle_ = TextureManager::Load("AL3_Player/Player.png");
 	enemyTextureHandle_ = TextureManager::Load("AL3_Enemy/Enemy.png");
-	chasingEnemyTextureHandle_ = TextureManager::Load("AL3_Player/Player.png");
+	chasingEnemyTextureHandle_ = TextureManager::Load("AL3_ChasingEnemy/ChasingEnemy.png");
 	skysphereTextureHandle = TextureManager::Load("skydome/AL_skysphere.png");
 	particleTextureHandle = TextureManager::Load("AL3_Particle/AL3_Particle.png");
 
@@ -108,11 +108,11 @@ void GameScene::Initialize(int stageNo) {
 	playerModel_ = Model::CreateFromOBJ("AL3_Player", true);
 	// 3Dモデルの生成
 	enemyModel_ = Model::CreateFromOBJ("AL3_Enemy", true);
-	chasingEnemyModel_ = Model::CreateFromOBJ("AL3_Player", true);
+	chasingEnemyModel_ = Model::CreateFromOBJ("AL3_ChasingEnemy", true);
 	// パーティクルのモデル生成
 	particleModel_ = Model::CreateFromOBJ("AL3_Particle", true);
 	// ゴールのモデル生成
-	goalModel_ = Model::CreateFromOBJ("AL3_Particle", true);
+	goalModel_ = Model::CreateFromOBJ("goal", true);
 
 	// 座標変換の初期化
 	worldTransform_.Initialize();
@@ -128,44 +128,54 @@ void GameScene::Initialize(int stageNo) {
 	mapChipField_->LoadMapChipCsv(mapFileName);
 
 	// まず CSV 中の '2' を探す (見つかればそこにスポーン)
+	Vector3 goalPosition = mapChipField_->GetMapChipPositionByIndex(49, 3);
 	Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 9); // フォールバック
 	MapChipField::IndexSet startIdx;
 	if (mapChipField_->FindFirstIndexByType(MapChipType::kPlayerStart, startIdx)) {
 		playerPosition = mapChipField_->GetMapChipPositionByIndex(startIdx.xIndex, startIdx.yIndex);
-	} else {
-		// 旧来のステージ別ハードコード位置は互換のため残す
-		switch (stageNo) {
-		case 1:
-			playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 10);
-			break;
-		case 2:
-			playerPosition = mapChipField_->GetMapChipPositionByIndex(2, 17);
-			break;
-		case 3:
-			playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
-			break;
-		case 4:
-			playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
-			break;
-		case 5:
-			playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
-			break;
-		case 6:
-			playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
-			break;
-		case 7:
-			playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
-			break;
-		case 8:
-			playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
-			break;
-		case 9:
-			playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
-			break;
-		case 10:
-			playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
-			break;
-		}
+	}
+	// 旧来のステージ別ハードコード位置は互換のため残す
+	switch (stageNo) {
+	case 1:
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 10);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(49, 3);
+		break;
+	case 2:
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(2, 17);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(48, 4);
+		break;
+	case 3:
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
+		break;
+	case 4:
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
+		break;
+	case 5:
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
+		break;
+	case 6:
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
+		break;
+	case 7:
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
+		break;
+	case 8:
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
+		break;
+	case 9:
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
+		break;
+	case 10:
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
+		break;
 	}
 
 	// 自キャラの生成
@@ -223,7 +233,6 @@ void GameScene::Initialize(int stageNo) {
 	// ゴールの生成と初期化
 	goal_ = new Goal();
 	// ゴールの位置をマップチップから取得（例: 98行, 18列目）
-	Vector3 goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
 	goal_->Initialize(goalModel_, goalPosition);
 
 	// ブロックの生成処理
@@ -347,7 +356,7 @@ void GameScene::Update() {
 			ImGui::End();
 
 #endif // DEBUG
-			// ポーズ中は以降のゲーム更新をスキップする（ただし共通処理は続ける）
+       // ポーズ中は以降のゲーム更新をスキップする（ただし共通処理は続ける）
 			break;
 		}
 
@@ -562,7 +571,7 @@ void GameScene::CheckAllCollisions() {
 				if (IsColliding(aabb1, aabb2)) {
 					// 衝突応答
 					player_->OnCollision(enemy->GetWorldTransform()); //
-					enemy->OnCollision(player_); //
+					enemy->OnCollision(player_);                      //
 				}
 			}
 		}

@@ -785,6 +785,16 @@ void Player::Update(const KamataEngine::Vector3& gravityVector, float cameraAngl
 		return;
 	}
 
+	// 画面外（下に落ちた）判定の処理
+	// ※「画面外」の定義はゲームによって異なります。ここではY座標が -10.0f を下回ったら死亡とします。
+	const float kDeadlyHeight = 11.0f;
+
+	if (GetWorldPosition().y < kDeadlyHeight) {
+		isAlive_ = false; // 生存フラグをfalseにする
+		// 死亡したので、これ以降の更新処理はスキップ
+		return;
+	}
+
 	// 現在の重力をメンバ変数に保存する
 	gravity_ = gravityVector;
 
