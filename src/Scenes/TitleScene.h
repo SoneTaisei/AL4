@@ -35,6 +35,9 @@ private:
 	KamataEngine::WorldTransform worldTransformTitle_;  // タイトル文字用
 	KamataEngine::WorldTransform worldTransformPlayer_; // プレイヤー用
 
+	float initialTitleY_ = 0.0f;  // タイトル文字の初期Y座標
+	float animationTimer_ = 0.0f; // アニメーション用カウンタ
+
 	// 3Dオブジェクト
 	Skydome* skydome_ = nullptr;
 
