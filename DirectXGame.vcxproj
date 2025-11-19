@@ -183,6 +183,8 @@
   <ItemGroup>
     <ClInclude Include="src\Objects\ChasingEnemy.h" />
     <ClInclude Include="src\HUD\HUD.h" />
+    <ClInclude Include="src\Objects\Projectile.h" />
+    <ClInclude Include="src\Objects\ShooterEnemy.h" />
     <ClInclude Include="src\Scenes\BaseScene.h" />
     <ClInclude Include="src\System\CameraController.h" />
     <ClInclude Include="src\System\Collision.h" />
@@ -207,6 +209,8 @@
   <ItemGroup>
     <ClCompile Include="src\Objects\ChasingEnemy.cpp" />
     <ClCompile Include="src\HUD\HUD.cpp" />
+    <ClCompile Include="src\Objects\Projectile.cpp" />
+    <ClCompile Include="src\Objects\ShooterEnemy.cpp" />
     <ClCompile Include="src\System\CameraController.cpp" />
     <ClCompile Include="src\Effects\DeathParticles.cpp" />
     <ClCompile Include="src\Utils\Easing.cpp" />

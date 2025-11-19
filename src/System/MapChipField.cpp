@@ -13,6 +13,7 @@ std::map<std::string, MapChipType> mapChipTable = {
     {"2", MapChipType::kPlayerStart}, // 追加: CSVの"2"をプレイヤー出現ポイントにマップ
     {"3", MapChipType::kEnemy},       // 追加: CSVの"3"を敵出現ポイントにマップ
     {"4", MapChipType::kChasingEnemy}, // 追加: CSVの"4"を追尾する敵にマップ
+    {"5", MapChipType::kShooter},     // 追加: CSVの"5"を射撃する敵にマップ
 };
 }
 
@@ -88,7 +89,7 @@ uint32_t MapChipField::GetNumBlockVirtical() { return kNumBlockVirtical; }
 
 uint32_t MapChipField::GetNumBlockHorizontal() { return kNumBlockHorizontal; }
 
-// MapChipField::GetMapChipIndexSetByPosition の実装
+ // MapChipField::GetMapChipIndexSetByPosition の実装
 MapChipField::IndexSet MapChipField::GetMapChipIndexSetByPosition(const KamataEngine::Vector3 position) {
 	IndexSet indexSet{};
 

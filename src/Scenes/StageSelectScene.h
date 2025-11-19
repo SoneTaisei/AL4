@@ -27,7 +27,7 @@ private:
 	KamataEngine::WorldTransform* cursorTransform_ = nullptr;
 
 	// ステージの総数
-	int maxStages_ = 10;
+	int maxStages_ = 3;
 	// 現在選択しているステージ番号 (0-indexed)
 	int selectedStageIndex_ = 0;
 

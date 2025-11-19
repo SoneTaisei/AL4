@@ -6,6 +6,7 @@
 class Player;
 class Enemy;
 class ChasingEnemy;
+class ShooterEnemy; // 追加
 class Skydome;
 class MapChipField;
 class CameraController;
@@ -47,6 +48,7 @@ private:
 	uint32_t playerTextureHandle_ = 0;
 	uint32_t enemyTextureHandle_ = 0;
 	uint32_t chasingEnemyTextureHandle_ = 0;
+	uint32_t shooterEnemyTextureHandle_ = 0; // 追加
 	uint32_t skysphereTextureHandle = 0;
 	uint32_t particleTextureHandle = 0;
 
@@ -60,6 +62,8 @@ private:
 	KamataEngine::Model* enemyModel_ = nullptr;
 	// 追尾する敵の3Dモデル
 	KamataEngine::Model* chasingEnemyModel_ = nullptr;
+	// 射撃する敵の3Dモデル
+	KamataEngine::Model* shooterEnemyModel_ = nullptr; // 追加
 	// パーティクルのモデル
 	KamataEngine::Model* particleModel_ = nullptr;
 
@@ -83,6 +87,8 @@ private:
 	std::list<Enemy*> enemies_;
 	// 追尾する敵キャラ
 	std::list<ChasingEnemy*> chasingEnemies_;
+	// 射撃する敵キャラ
+	std::list<ShooterEnemy*> shooterEnemies_; // 追加
 
 	// 天球
 	Skydome* skydome_ = nullptr;
@@ -117,6 +123,12 @@ private:
 
 	// HUDの初期化
 	UI* UI_ = nullptr;
+
+	uint32_t jHandle_;
+	KamataEngine::Sprite* jSprite_ = {};
+
+	uint32_t spaceHandle_;
+	KamataEngine::Sprite* spaceSprite_ = {};
 
 
 	// ポーズ制御フラグ（追加）
