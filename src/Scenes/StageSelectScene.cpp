@@ -29,11 +29,11 @@ void StageSelectScene::Initialize() {
 
 	// ステージ選択肢の立方体
 	for (int i = 0; i < maxStages_; ++i) {
-		int row = i / 5; // 0～4なら0, 5～9なら1
-		int col = i % 5; // 0～4の繰り返し
+		//int row = i / 5; // 0～4なら0, 5～9なら1
+		//int col = i % 5; // 0～4の繰り返し
 
 		// 上の段はY=5.0f, 下の段はY=-5.0fに配置
-		Vector3 iconPos = {-20.0f + col * 10.0f, 5.0f - row * 10.0f, 0.0f};
+		Vector3 iconPos = {-10.0f + i * 10.0f, 0.0f, 0.0f};
 
 		WorldTransform* newTransform = new WorldTransform();
 		newTransform->Initialize();
@@ -78,23 +78,23 @@ void StageSelectScene::Update() {
 
 	case Phase::kMain:
 		// 右キー
-		if (Input::GetInstance()->TriggerKey(DIK_RIGHT)) {
+		if (Input::GetInstance()->TriggerKey(DIK_D)) {
 			cursorCol_++;
-			if (cursorCol_ > 4) {
+			if (cursorCol_ > 2) {
 				cursorCol_ = 0;
 			}
 		}
 		// 左キー
-		if (Input::GetInstance()->TriggerKey(DIK_LEFT)) {
+		if (Input::GetInstance()->TriggerKey(DIK_A)) {
 			cursorCol_--;
 			if (cursorCol_ < 0) {
-				cursorCol_ = 4;
+				cursorCol_ = 2;
 			}
 		}
 		// 上下キー
-		if (Input::GetInstance()->TriggerKey(DIK_UP) || Input::GetInstance()->TriggerKey(DIK_DOWN)) {
-			cursorRow_ = 1 - cursorRow_; // 0なら1に、1なら0に切り替える
-		}
+		//if (Input::GetInstance()->TriggerKey(DIK_UP) || Input::GetInstance()->TriggerKey(DIK_DOWN)) {
+		//	cursorRow_ = 1 - cursorRow_; // 0なら1に、1なら0に切り替える
+		//}
 
 		// 行と列から最終的なステージ番号を計算
 		selectedStageIndex_ = cursorRow_ * 5 + cursorCol_;

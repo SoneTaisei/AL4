@@ -95,8 +95,8 @@ void Enemy::MapCollisionRight(CollisionMapInfo& info) {
 	Vector3 rightBottomCheck = centerNew + Vector3{kWidth / 2.0f, -checkHeight / 2.0f, 0.0f};
 	MapChipField::IndexSet indexSetTop = mapChipField_->GetMapChipIndexSetByPosition(rightTopCheck);
 	MapChipField::IndexSet indexSetBottom = mapChipField_->GetMapChipIndexSetByPosition(rightBottomCheck);
-	if ((mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ||
-	    (mapChipField_->GetMapChipTypeByIndex(indexSetBottom.xIndex, indexSetBottom.yIndex) == MapChipType::kBlock)) {
+	if (((mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ||
+	     (mapChipField_->GetMapChipTypeByIndex(indexSetBottom.xIndex, indexSetBottom.yIndex) == MapChipType::kBlock)) &&lrDirection_ == LRDirection::kRight) {
 		info.isWallContact = true;
 		MapChipField::IndexSet indexSet = (mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ? indexSetTop : indexSetBottom;
 		MapChipField::Rect blockRect = mapChipField_->GetRectByIndex(indexSet.xIndex, indexSet.yIndex);
@@ -114,8 +114,8 @@ void Enemy::MapCollisionLeft(CollisionMapInfo& info) {
 	Vector3 leftBottomCheck = centerNew + Vector3{-kWidth / 2.0f, -checkHeight / 2.0f, 0.0f};
 	MapChipField::IndexSet indexSetTop = mapChipField_->GetMapChipIndexSetByPosition(leftTopCheck);
 	MapChipField::IndexSet indexSetBottom = mapChipField_->GetMapChipIndexSetByPosition(leftBottomCheck);
-	if ((mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ||
-	    (mapChipField_->GetMapChipTypeByIndex(indexSetBottom.xIndex, indexSetBottom.yIndex) == MapChipType::kBlock)) {
+	if (((mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ||
+	    (mapChipField_->GetMapChipTypeByIndex(indexSetBottom.xIndex, indexSetBottom.yIndex) == MapChipType::kBlock))&&lrDirection_==LRDirection::kLeft) {
 		info.isWallContact = true;
 		MapChipField::IndexSet indexSet = (mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ? indexSetTop : indexSetBottom;
 		MapChipField::Rect blockRect = mapChipField_->GetRectByIndex(indexSet.xIndex, indexSet.yIndex);
@@ -140,6 +140,9 @@ void Enemy::Initialize(KamataEngine::Model* model, uint32_t textureHandle, Kamat
 
 	worldTransform_.rotation_.y = std::numbers::pi_v<float> / 2.0f;
 
+	// 初期スケールを明示
+	worldTransform_.scale_ = {kInitialScale, kInitialScale, kInitialScale};
+
 	// 座標を元に行列の更新を行う
 	TransformUpdater::WorldTransformUpdate(worldTransform_);
 	worldTransform_.TransferMatrix();
@@ -149,16 +152,58 @@ void Enemy::Initialize(KamataEngine::Model* model, uint32_t textureHandle, Kamat
 
 	workTimer_ = 0.0f;
 
-	isAlive_ = true;
+	// 初期状態は生存
+	state_ = State::kAlive;
+
+	// オブジェクトカラー初期化（死亡時のフェードで使う）
+	objectColor_.Initialize();
+	color_ = {1.0f, 1.0f, 1.0f, 1.0f};
+	// death timer reset
+	deathTimer_ = 0.0f;
 }
 
 void Enemy::Update() {
 
-	if (!isAlive_) {
+	// Dead なら更新しない
+	if (state_ == State::kDead) {
 		return;
 	}
 
-	// --- 1. 重力と移動 ---
+	// 死亡中のアニメーション処理
+	const float dt = 1.0f / 60.0f;
+	if (state_ == State::kDying) {
+		// シーケンシャル処理：まず回転、その後縮小フェード
+		float totalDuration = kDeathSpinDuration + kDeathShrinkDuration;
+		deathTimer_ += dt;
+
+		if (deathTimer_ < kDeathSpinDuration) {
+			// 回転フェーズ：Y軸回転のみ
+			worldTransform_.rotation_.y += kDeathSpinSpeed * dt;
+		} else {
+			// 縮小フェーズ（回転は停止）
+			float shrinkElapsed = deathTimer_ - kDeathSpinDuration;
+			float t = std::clamp(shrinkElapsed / kDeathShrinkDuration, 0.0f, 1.0f);
+			// スケール線形補間 1.0 -> 0.0
+			float scale = (1.0f - t) * kInitialScale;
+			worldTransform_.scale_ = {scale, scale, scale};
+			// アルファ線形補間 1.0 -> 0.0
+			color_.w = 1.0f - t;
+			// objectColor_ が API を提供するなら更新する（エンジンによって異なる）
+			// objectColor_.SetColor(color_); // 必要なら有効化
+		}
+
+		// 行列更新（回転・スケールの反映）
+		TransformUpdater::WorldTransformUpdate(worldTransform_);
+		worldTransform_.TransferMatrix();
+
+		// 終了判定
+		if (deathTimer_ >= totalDuration) {
+			state_ = State::kDead;
+		}
+		return;
+	}
+
+	// --- 1. 重力と移動 --- (通常の生存時処理)
 	if (onGround_) {
 		// 着地している場合、左右の速度を維持
 		velocity_.x = (lrDirection_ == LRDirection::kLeft) ? -kWorkSpeed : kWorkSpeed;
@@ -183,6 +228,7 @@ void Enemy::Update() {
 			// 旋回アニメーションの準備
 			turnFirstRotationY_ = worldTransform_.rotation_.y;
 			turnTimer_ = 0.0f;
+			infoX.move.x = 0.0f;
 		}
 	}
 	worldTransform_.translation_.x += infoX.move.x;
@@ -204,26 +250,23 @@ void Enemy::Update() {
 	}
 
 	// --- 3. アニメーションと向きの更新 ---
-	workTimer_ += 1.0f / 60.0f;
+	workTimer_ += dt;
 	float timeInCycle = std::fmod(workTimer_, kWalkMotionTime);
 	float progress = timeInCycle / kWalkMotionTime;
 	float sinArgument = progress * 2.0f * std::numbers::pi_v<float>;
-	float t = (std::sin(sinArgument) + 1.0f) / 2.0f;
-	worldTransform_.rotation_.x = (1.0f - t) * kWalkMotionAngleStart + t * kWalkMotionAngleEnd;
+	float r = (std::sin(sinArgument) + 1.0f) / 2.0f;
+	worldTransform_.rotation_.x = (1.0f - r) * kWalkMotionAngleStart + r * kWalkMotionAngleEnd;
 
 	// 向きの更新
 	if (turnTimer_ < 1.0f) {
-		// kTimeTurnで指定した秒数でタイマーが1.0fになるように増加量を調整 (60FPS想定)
 		turnTimer_ += 1.0f / (60.0f * kTimeTurn);
-		turnTimer_ = std::fminf(turnTimer_, 1.0f); // 1.0fを超えないようにする
+		turnTimer_ = std::fminf(turnTimer_, 1.0f);
 
 		float destinationRotationYTable[] = {
 		    std::numbers::pi_v<float> * 0.5f, // 右向き (90度)
 		    std::numbers::pi_v<float> * 1.5f  // 左向き (270度)
 		};
 		float destinationRotationY = destinationRotationYTable[static_cast<uint32_t>(lrDirection_)];
-
-		// EaseInOutを使い、滑らかな緩急のある回転をさせる
 		worldTransform_.rotation_.y = Lerp(turnFirstRotationY_, destinationRotationY, (turnTimer_));
 	}
 
@@ -233,7 +276,8 @@ void Enemy::Update() {
 }
 
 void Enemy::Draw() {
-	if (!isAlive_) {
+	// Dead は描画しない
+	if (state_ == State::kDead) {
 		return;
 	}
 	// DirectXCommonの取得
@@ -243,7 +287,14 @@ void Enemy::Draw() {
 	KamataEngine::Model::PreDraw(dxCommon->GetCommandList());
 
 	// 3Dモデルを描画
-	model_->Draw(worldTransform_, *camera_, textureHandle_);
+	// 死亡フェードの際は objectColor_ を使ってアルファを反映（ObjectColor の使い方に合わせて調整してください）
+	if (state_ == State::kDying) {
+		// もし ObjectColor の SetColor 等が存在する場合はここで更新すること
+		// objectColor_.SetColor(color_);
+		model_->Draw(worldTransform_, *camera_, textureHandle_, &objectColor_);
+	} else {
+		model_->Draw(worldTransform_, *camera_, textureHandle_);
+	}
 
 	// 3Dモデル描画後処理
 	KamataEngine::Model::PostDraw();
@@ -269,4 +320,24 @@ void Enemy::OnCollision(const Player* player) {
 	// 警告を抑制するためのダミー処理
 	(void)player;
 	// ここに敵がプレイヤーに当たった時の処理を書く（例：HPを減らすなど）
+}
+
+// SetIsAlive の実装: false が来たら死亡演出を開始する
+void Enemy::SetIsAlive(bool isAlive) {
+	if (isAlive) {
+		// 復活や再利用する場合
+		state_ = State::kAlive;
+		deathTimer_ = 0.0f;
+		worldTransform_.scale_ = {kInitialScale, kInitialScale, kInitialScale};
+		color_ = {1.0f, 1.0f, 1.0f, 1.0f};
+	} else {
+		// 生存状態から死亡アニメーションへ移行する
+		if (state_ == State::kAlive) {
+			state_ = State::kDying;
+			deathTimer_ = 0.0f;
+			// 物理挙動を止める
+			velocity_ = {0.0f, 0.0f, 0.0f};
+			onGround_ = false;
+		}
+	}
 }

@@ -2,6 +2,7 @@
 #include "KamataEngine.h"
 #include <numbers>
 #include "System/Collision.h"
+#include "System/MapChipField.h" // 追加
 
 // 循環参照を避けるための前方宣言
 class Player;
@@ -62,10 +63,35 @@ private:
 	// マップチップによるフィールド
 	MapChipField* mapChipField_ = nullptr;
 
+	// 追加: 生成時のマップインデックスを保存
+	MapChipField::IndexSet spawnIndex_{UINT32_MAX, UINT32_MAX};
+
 	// 角
 	enum Corner { kRightBottom, kLeftBottom, kRightTop, kLeftTop, kNumCorner };
 
-	bool isAlive_ = false;
+	// 生存状態は State で管理（Alive / Dying / Dead）
+	enum class State {
+		kAlive,
+		kDying,
+		kDead
+	};
+	State state_ = State::kAlive;
+
+	// --- 死亡演出用 ---
+	// 死亡アニメーションの経過タイマー
+	float deathTimer_ = 0.0f;
+	// 回転時間（秒）
+	static inline const float kDeathSpinDuration = 0.6f;
+	// 縮小（フェード）時間（秒）
+	static inline const float kDeathShrinkDuration = 0.4f;
+	// 回転速度（ラジアン/秒）
+	static inline const float kDeathSpinSpeed = 20.0f;
+	// 縮小開始時スケール（通常1.0）
+	static inline const float kInitialScale = 1.0f;
+	// 色変更オブジェクト（フェードに使用）
+	KamataEngine::ObjectColor objectColor_;
+	// 色データ RGBA
+	KamataEngine::Vector4 color_;
 
 	/// <summary>
 	/// 指定した角の座標を計算
@@ -122,6 +148,9 @@ public:
 	/// </summary>
 	void SetMapChipField(MapChipField* mapChipField) { mapChipField_ = mapChipField; }
 	
+	// 追加: 生成時のマップインデックスをセット/取得
+	void SetSpawnIndex(const MapChipField::IndexSet& idx) { spawnIndex_ = idx; }
+	MapChipField::IndexSet GetSpawnIndex() const { return spawnIndex_; }
 
 	/// <summary>
 	/// AABBを取得
@@ -137,7 +166,9 @@ public:
 
 	const KamataEngine::WorldTransform& GetWorldTransform() const { return worldTransform_; }
 
-	bool GetIsAlive() const { return isAlive_; }
+	// 生存フラグ（外部に対しては「通常の生存状態のみ true」を返す）
+	bool GetIsAlive() const { return state_ == State::kAlive; }
 
-	void SetIsAlive(bool isAlive) { isAlive_ = isAlive; }
+	// 生存状態をセット（false を渡すと死亡アニメーションを開始）
+	void SetIsAlive(bool isAlive);
 };

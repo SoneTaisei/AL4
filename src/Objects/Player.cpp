@@ -631,7 +631,7 @@ void Player::HandleCeilingCollision(const CollisionMapInfo& info) {
 /// <summary>
 /// ワールド座標の取得
 /// </summary>
-KamataEngine::Vector3 Player::GetWorldPosition() {
+KamataEngine::Vector3 Player::GetWorldPosition() const {
 	// ワールド座標を入れる変数を宣言
 	Vector3 worldPos;
 	// ワールド行列の平行移動成分を取得 (ワールド座標)
@@ -664,9 +664,8 @@ AABB Player::GetAABB() {
 	return aabb;
 }
 
-void Player::OnCollision(const Enemy* enemy) {
+void Player::OnCollision(const KamataEngine::WorldTransform &worldTransform) {
 	// 衝突相手の情報を表示 (デバッグ用)
-	(void)enemy; // 今は使わないので警告抑制
 
 	// 無敵状態、またはすでに死亡している場合は何もしない
 	if (isInvicible_ || !isAlive_) {
@@ -686,7 +685,7 @@ void Player::OnCollision(const Enemy* enemy) {
 		invincibleTimer_ = kInvincibleDuration;
 
 		// 敵のワールド座標を取得 (EnemyクラスにGetWorldTransform() constが必要です)
-		KamataEngine::Vector3 enemyPos = enemy->GetWorldTransform().translation_;
+		KamataEngine::Vector3 enemyPos = worldTransform.translation_;
 		KamataEngine::Vector3 playerPos = worldTransform_.translation_;
 
 		// プレイヤーから敵への逆方向ベクトルを計算
@@ -783,6 +782,16 @@ void Player::Initialize(KamataEngine::Model* model, uint32_t textureHandle, Kama
 void Player::Update(const KamataEngine::Vector3& gravityVector, float cameraAngleZ) {
 
 	if (!isAlive_) {
+		return;
+	}
+
+	// 画面外（下に落ちた）判定の処理
+	// ※「画面外」の定義はゲームによって異なります。ここではY座標が -10.0f を下回ったら死亡とします。
+	const float kDeadlyHeight = 11.0f;
+
+	if (GetWorldPosition().y < kDeadlyHeight) {
+		isAlive_ = false; // 生存フラグをfalseにする
+		// 死亡したので、これ以降の更新処理はスキップ
 		return;
 	}
 

@@ -5,12 +5,15 @@
 
 class Player;
 class Enemy;
+class ChasingEnemy;
+class ShooterEnemy; // 追加
 class Skydome;
 class MapChipField;
 class CameraController;
 class DeathParticles;
 class Goal;
 class UI;
+class HUD;
 
 /* ゲームシーン*/
 class GameScene {
@@ -44,6 +47,8 @@ private:
 	uint32_t uvCheckerTextureHandle_ = 0;
 	uint32_t playerTextureHandle_ = 0;
 	uint32_t enemyTextureHandle_ = 0;
+	uint32_t chasingEnemyTextureHandle_ = 0;
+	uint32_t shooterEnemyTextureHandle_ = 0; // 追加
 	uint32_t skysphereTextureHandle = 0;
 	uint32_t particleTextureHandle = 0;
 
@@ -55,6 +60,10 @@ private:
 	KamataEngine::Model* playerModel_ = nullptr;
 	// 敵の3Dモデル
 	KamataEngine::Model* enemyModel_ = nullptr;
+	// 追尾する敵の3Dモデル
+	KamataEngine::Model* chasingEnemyModel_ = nullptr;
+	// 射撃する敵の3Dモデル
+	KamataEngine::Model* shooterEnemyModel_ = nullptr; // 追加
 	// パーティクルのモデル
 	KamataEngine::Model* particleModel_ = nullptr;
 
@@ -76,6 +85,10 @@ private:
 
 	// 敵キャラ
 	std::list<Enemy*> enemies_;
+	// 追尾する敵キャラ
+	std::list<ChasingEnemy*> chasingEnemies_;
+	// 射撃する敵キャラ
+	std::list<ShooterEnemy*> shooterEnemies_; // 追加
 
 	// 天球
 	Skydome* skydome_ = nullptr;
@@ -105,13 +118,27 @@ private:
 	// 終了フラグ
 	bool finished_ = false;
 
-	// UIの初期化
-	UI *UI_ = nullptr;
+	// HUDの初期化
+	HUD *HUD_ = nullptr;
+
+	// HUDの初期化
+	UI* UI_ = nullptr;
+
+	uint32_t jHandle_;
+	KamataEngine::Sprite* jSprite_ = {};
+
+	uint32_t spaceHandle_;
+	KamataEngine::Sprite* spaceSprite_ = {};
+
 
 	// ポーズ制御フラグ（追加）
 	bool isPaused_ = false;
 	// 操作確認表示フラグ（追加）
 	bool showControls_ = false;
+
+	// --- ポーズメニュー選択用 ---
+	int pauseMenuIndex_ = 0; // 0: リスタート, 1: ステージセレクトに戻る
+	static inline const int kPauseMenuCount = 2;
 
 	/// <summary>
 	/// 全ての当たり判定を行う

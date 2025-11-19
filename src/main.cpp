@@ -134,7 +134,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	/*********************************************************
 	 *初期化処理
 	 *********************************************************/
-	Initialize(L"LE2B_12_ソネ_タイセイ_AL3");
+	Initialize(L"LE2B_13_ソネ_タイセイ_オバケパニック");
 	DirectXCommon* dxCommon = DirectXCommon::GetInstance();
 	ImGuiManager* imguiManager = ImGuiManager::GetInstance();
 

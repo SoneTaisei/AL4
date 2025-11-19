@@ -18,7 +18,7 @@ TitleScene::~TitleScene() {
 void TitleScene::Initialize() {
 	// 3Dモデルを読み込む
 	// 前回作成したファイル名 "GoodGame.obj" を拡張子なしで指定
-	modelTitle_ = KamataEngine::Model::CreateFromOBJ("TitleName");
+	modelTitle_ = KamataEngine::Model::CreateFromOBJ("TitleName2");
 	modelPlayer_ = KamataEngine::Model::CreateFromOBJ("AL3_Player");
 	skydomeModel_ = KamataEngine::Model::CreateFromOBJ("skydome", true);
 
@@ -74,8 +74,12 @@ void TitleScene::Update() {
 		break;
 
 	case Phase::kMain:
-		// メイン処理 (タイトルロゴの回転など)
-		worldTransformTitle_.rotation_.y += 0.005f;
+		// メイン処理 (タイトルロゴの上下アニメーション)
+		// アニメーション用カウンタを進める
+		animationTimer_ += 1.0f / 60.0f; // 1秒間に1/60ずつ増加 (フレームレートを想定)
+
+		// サインカーブを使ってY座標を更新 (振幅: 0.5f, 周期を調整)
+		worldTransformTitle_.translation_.y = initialTitleY_ + std::sin(animationTimer_ * 5.0f) * 0.5f+5.5f;
 
 		// スペースキーが押されたらフェードアウトを開始
 		if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {

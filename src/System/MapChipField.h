@@ -7,13 +7,15 @@
 enum class MapChipType {
 	kBlank, // 空白
 	kBlock, // ブロック
+	kPlayerStart, // プレイヤー出現ポイント (CSVの"2")
+	kEnemy, // 敵出現ポイント (CSVの"3")
+	kChasingEnemy, // 追尾する敵 (CSVの"4")
+	kShooter, // 射撃する敵 (CSVの"5") 追加
 };
 
 struct MapChipData {
 	std::vector<std::vector<MapChipType>> data;
 };
-
-
 
 class MapChipField {
 private:
@@ -26,8 +28,6 @@ private:
 
 	// マップチップのデータ
 	MapChipData mapChipData_;
-
-	
 
 public:
 
@@ -76,4 +76,10 @@ public:
 	/// <param name="yIndex">Yインデックス</param>
 	/// <returns>ブロックの境界範囲</returns>
 	Rect GetRectByIndex(uint32_t xIndex, uint32_t yIndex);
+
+	/// <summary>
+	/// 指定した MapChipType を持つ最初のインデックスを検索する
+	/// 見つかれば true を返し outIndex に格納する。見つからなければ false を返す。
+	/// </summary>
+	bool FindFirstIndexByType(MapChipType type, IndexSet& outIndex);
 };

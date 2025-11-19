@@ -241,7 +241,7 @@ public:
 	/// ワールド座標を取得
 	/// </summary>
 	/// <returns>ワールド座標</returns>
-	KamataEngine::Vector3 GetWorldPosition();
+	KamataEngine::Vector3 GetWorldPosition() const;
 
 	/// <summary>
 	/// AABBを取得
@@ -253,7 +253,7 @@ public:
 	/// 衝突応答
 	/// </summary>
 	/// <param name="enemy">衝突相手の敵</param>
-	void OnCollision(const Enemy* enemy);
+	void OnCollision(const KamataEngine::WorldTransform &worldTransform);
 
 	/// <summary>
 	/// HPを取得する

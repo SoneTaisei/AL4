@@ -2,18 +2,22 @@
 #include "Effects/DeathParticles.h"
 #include "Effects/Fade.h"
 #include "Effects/Skydome.h"
+#include "HUD/HUD.h"
+#include "Objects/ChasingEnemy.h"
 #include "Objects/Enemy.h"
+#include "Objects/ShooterEnemy.h" // 追加
 #include "Objects/Goal.h"
 #include "Objects/Player.h"
 #include "System/CameraController.h"
 #include "System/MapChipField.h"
+#include "UI/UI.h"
 #include "Utils/TransformUpdater.h"
 #include <Windows.h> // OutputDebugStringA を使うために必要
 #include <cstdio>    // sprintf_s を使うために必要
-#include"UI/UI.h"
 #include <imgui.h>
 
 using namespace KamataEngine;
+
 
 /// <summary>
 /// AABB同士の交差判定
@@ -30,8 +34,14 @@ bool IsColliding(const AABB& aabb1, const AABB& aabb2) {
 
 void GameScene::Reset() {
 	// プレイヤーの初期化
-	// プレイヤーの初期座標をマップから取得
-	Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 9);
+	// マップ上に '2' (kPlayerStart) があればそこを優先して初期座標とする
+	Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 9); // フォールバック
+
+	MapChipField::IndexSet startIdx;
+	if (mapChipField_->FindFirstIndexByType(MapChipType::kPlayerStart, startIdx)) {
+		playerPosition = mapChipField_->GetMapChipPositionByIndex(startIdx.xIndex, startIdx.yIndex);
+	}
+
 	player_->Initialize(playerModel_, playerTextureHandle_, &camera_, playerPosition);
 	player_->SetMapChipField(mapChipField_); // マップチップフィールドを再設定
 
@@ -41,14 +51,46 @@ void GameScene::Reset() {
 		delete enemy;
 	}
 	enemies_.clear();
-	// 再度、敵を生成・初期化
-	const int kNumEnemies = 1;
-	for (int i = 0; i < kNumEnemies; ++i) {
-		Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(10 + i * 5, 9);
-		Enemy* newEnemy = new Enemy();
-		newEnemy->Initialize(enemyModel_, enemyTextureHandle_, &camera_, enemyPosition);
-		newEnemy->SetMapChipField(mapChipField_);
-		enemies_.push_back(newEnemy);
+
+	// 追尾する敵の初期化
+	for (ChasingEnemy* enemy : chasingEnemies_) {
+		delete enemy;
+	}
+	chasingEnemies_.clear();
+
+	// 射撃する敵の初期化 (追加)
+	for (ShooterEnemy* enemy : shooterEnemies_) {
+		delete enemy;
+	}
+	shooterEnemies_.clear();
+
+	// マップから敵を生成（CSVで'3'を指定したセル）
+	for (uint32_t y = 0; y < mapChipField_->GetNumBlockVirtical(); ++y) {
+		for (uint32_t x = 0; x < mapChipField_->GetNumBlockHorizontal(); ++x) {
+			MapChipType t = mapChipField_->GetMapChipTypeByIndex(x, y);
+			if (t == MapChipType::kEnemy) {
+				Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(x, y);
+				Enemy* newEnemy = new Enemy();
+				newEnemy->Initialize(enemyModel_, enemyTextureHandle_, &camera_, enemyPosition);
+				newEnemy->SetMapChipField(mapChipField_);
+				newEnemy->SetSpawnIndex(mapChipField_->GetMapChipIndexSetByPosition(enemyPosition));
+				enemies_.push_back(newEnemy);
+			} else if (t == MapChipType::kChasingEnemy) {
+				Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(x, y);
+				ChasingEnemy* newEnemy = new ChasingEnemy();
+				newEnemy->Initialize(chasingEnemyModel_, chasingEnemyTextureHandle_, &camera_, enemyPosition);
+				newEnemy->SetTargetPlayer(player_); // プレイヤーをターゲットに設定
+				chasingEnemies_.push_back(newEnemy);
+			} else if (t == MapChipType::kShooter) { // 追加: マップチップ5 -> 射撃敵
+				Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(x, y);
+				ShooterEnemy* newEnemy = new ShooterEnemy();
+				// 既存の敵モデルを流用（別モデルを使う場合は shooterEnemyModel_/shooterEnemyTextureHandle_ を用意して差し替えてください）
+				newEnemy->Initialize(enemyModel_, enemyTextureHandle_, &camera_, enemyPosition);
+				newEnemy->SetMapChipField(mapChipField_);
+				newEnemy->SetPlayer(player_);
+				shooterEnemies_.push_back(newEnemy);
+			}
+		}
 	}
 
 	// カメラコントローラーのリセット
@@ -57,8 +99,8 @@ void GameScene::Reset() {
 	cameraTargetAngleZ_ = 0.0f; // カメラの目標角度もリセット
 
 	// ゴールの初期化
-	Vector3 goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
-	goal_->Initialize(goalModel_, goalPosition);
+	/*Vector3 goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
+	goal_->Initialize(goalModel_, goalPosition);*/
 
 	// フェーズをフェードインに戻す
 	phase_ = Phase::kFadeIn;
@@ -70,6 +112,9 @@ void GameScene::Initialize(int stageNo) {
 	uvCheckerTextureHandle_ = TextureManager::Load("uvChecker.png");
 	playerTextureHandle_ = TextureManager::Load("AL3_Player/Player.png");
 	enemyTextureHandle_ = TextureManager::Load("AL3_Enemy/Enemy.png");
+	chasingEnemyTextureHandle_ = TextureManager::Load("AL3_ChasingEnemy/ChasingEnemy.png");
+	// shooter 用に個別ロードしたい場合はここでロードしてください。現状は enemy のアセットを使い回します。
+	// shooterEnemyTextureHandle_ = TextureManager::Load("AL3_ShooterEnemy/Shooter.png");
 	skysphereTextureHandle = TextureManager::Load("skydome/AL_skysphere.png");
 	particleTextureHandle = TextureManager::Load("AL3_Particle/AL3_Particle.png");
 
@@ -81,10 +126,13 @@ void GameScene::Initialize(int stageNo) {
 	playerModel_ = Model::CreateFromOBJ("AL3_Player", true);
 	// 3Dモデルの生成
 	enemyModel_ = Model::CreateFromOBJ("AL3_Enemy", true);
+	chasingEnemyModel_ = Model::CreateFromOBJ("AL3_ChasingEnemy", true);
+	// shooterEnemyModel_ を別に用意する場合はここで生成（現状は enemyModel_ を使い回す）
+	// shooterEnemyModel_ = Model::CreateFromOBJ("AL3_ShooterEnemy", true);
 	// パーティクルのモデル生成
 	particleModel_ = Model::CreateFromOBJ("AL3_Particle", true);
 	// ゴールのモデル生成
-	goalModel_ = Model::CreateFromOBJ("AL3_Particle", true);
+	goalModel_ = Model::CreateFromOBJ("goal", true);
 
 	// 座標変換の初期化
 	worldTransform_.Initialize();
@@ -99,37 +147,54 @@ void GameScene::Initialize(int stageNo) {
 	std::string mapFileName = "Resources/stage/stage" + std::to_string(stageNo) + ".csv";
 	mapChipField_->LoadMapChipCsv(mapFileName);
 
-	Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 9);
+	// まず CSV 中の '2' を探す (見つかればそこにスポーン)
+	Vector3 goalPosition = mapChipField_->GetMapChipPositionByIndex(49, 3);
+	Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 9); // フォールバック
+	MapChipField::IndexSet startIdx;
+	if (mapChipField_->FindFirstIndexByType(MapChipType::kPlayerStart, startIdx)) {
+		playerPosition = mapChipField_->GetMapChipPositionByIndex(startIdx.xIndex, startIdx.yIndex);
+	}
+	// 旧来のステージ別ハードコード位置は互換のため残す
 	switch (stageNo) {
 	case 1:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 10);
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 10);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(49, 3);
 		break;
 	case 2:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(2, 17);
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(2, 17);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(37, 10);
 		break;
 	case 3:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(37, 10);
 		break;
 	case 4:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
 		break;
 	case 5:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
 		break;
 	case 6:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
 		break;
 	case 7:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
 		break;
 	case 8:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
 		break;
 	case 9:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
 		break;
 	case 10:
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		// playerPosition = mapChipField_->GetMapChipPositionByIndex(3, 17);
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
 		break;
 	}
 
@@ -144,19 +209,32 @@ void GameScene::Initialize(int stageNo) {
 	// モデルはキューブ、テクスチャはuvChecker、座標は自キャラと同じものを仮で使う
 	deathParticles_->Initialize(particleModel_, particleTextureHandle, &camera_, playerPosition);
 
-	// 敵を複数生成する
-	const int kNumEnemies = 1; // 生成したい敵の数
-	for (int i = 0; i < kNumEnemies; ++i) {
-		// 敵の初期座標を設定 (ここでは例としてX座標をずらして配置)
-		Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(10 + i * 5, 9);
-
-		// 敵キャラの生成
-		Enemy* newEnemy = new Enemy();
-		// 敵キャラの初期化
-		newEnemy->Initialize(enemyModel_, enemyTextureHandle_, &camera_, enemyPosition);
-		newEnemy->SetMapChipField(mapChipField_);
-		// リストに追加
-		enemies_.push_back(newEnemy);
+	// 敵をマップチップから生成（CSVで'3'を指定したセル）
+	for (uint32_t y = 0; y < mapChipField_->GetNumBlockVirtical(); ++y) {
+		for (uint32_t x = 0; x < mapChipField_->GetNumBlockHorizontal(); ++x) {
+			MapChipType t = mapChipField_->GetMapChipTypeByIndex(x, y);
+			if (t == MapChipType::kEnemy) {
+				Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(x, y);
+				Enemy* newEnemy = new Enemy();
+				newEnemy->Initialize(enemyModel_, enemyTextureHandle_, &camera_, enemyPosition);
+				newEnemy->SetMapChipField(mapChipField_);
+				newEnemy->SetSpawnIndex(mapChipField_->GetMapChipIndexSetByPosition(enemyPosition));
+				enemies_.push_back(newEnemy);
+			} else if (t == MapChipType::kChasingEnemy) {
+				Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(x, y);
+				ChasingEnemy* newEnemy = new ChasingEnemy();
+				newEnemy->Initialize(chasingEnemyModel_, chasingEnemyTextureHandle_, &camera_, enemyPosition);
+				newEnemy->SetTargetPlayer(player_); // プレイヤーをターゲットに設定
+				chasingEnemies_.push_back(newEnemy);
+			} else if (t == MapChipType::kShooter) { // 追加: マップチップ5 -> 射撃敵
+				Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(x, y);
+				ShooterEnemy* newEnemy = new ShooterEnemy();
+				newEnemy->Initialize(enemyModel_, enemyTextureHandle_, &camera_, enemyPosition);
+				newEnemy->SetMapChipField(mapChipField_);
+				newEnemy->SetPlayer(player_);
+				shooterEnemies_.push_back(newEnemy);
+			}
+		}
 	}
 
 	// 要素数
@@ -182,7 +260,6 @@ void GameScene::Initialize(int stageNo) {
 	// ゴールの生成と初期化
 	goal_ = new Goal();
 	// ゴールの位置をマップチップから取得（例: 98行, 18列目）
-	Vector3 goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
 	goal_->Initialize(goalModel_, goalPosition);
 
 	// ブロックの生成処理
@@ -220,11 +297,30 @@ void GameScene::Initialize(int stageNo) {
 
 	UI_ = new UI;
 	UI_->Initialize();
+
+	HUD_ = new HUD;
+	HUD_->Initialize();
+
+	// Initialize 内の該当箇所（既存の jHandle_/jSprite_ 生成直後に追加）
+	jHandle_ = TextureManager::GetInstance()->Load("HUD/J.png");
+	jSprite_ = Sprite::Create(jHandle_, {64, 600});
+	if (jSprite_) {
+		jSprite_->SetSize({64, 64});
+	} else {
+		OutputDebugStringA("Warning: jSprite_ is null after Sprite::Create(\"HUD/J.png\")\n");
+	}
+	spaceHandle_ = TextureManager::GetInstance()->Load("HUD/space.png");
+	spaceSprite_ = Sprite::Create(spaceHandle_, {192, 600});
+	if (spaceSprite_) {
+		spaceSprite_->SetSize({224, 64});
+	} else {
+		OutputDebugStringA("Warning: spaceSprite_ is null after Sprite::Create(\"HUD/space.png\")\n");
+	}
 }
 
 void GameScene::Update() {
 
-	// ポーズ切替（ESC）
+	// ポーズ切替（ESC）　
 	if (Input::GetInstance()->TriggerKey(DIK_ESCAPE)) {
 		isPaused_ = !isPaused_;
 		if (!isPaused_) {
@@ -247,8 +343,34 @@ void GameScene::Update() {
 
 		// ポーズ中はゲームプレイ更新を停止してImGuiでメニュー表示
 		if (isPaused_) {
+			// キーボードによる選択操作（上下で選択）
+			if (Input::GetInstance()->TriggerKey(DIK_W)) {
+				pauseMenuIndex_ = (pauseMenuIndex_ + GameScene::kPauseMenuCount - 1) % GameScene::kPauseMenuCount;
+			}
+			if (Input::GetInstance()->TriggerKey(DIK_S)) {
+				pauseMenuIndex_ = (pauseMenuIndex_ + 1) % GameScene::kPauseMenuCount;
+			}
+			// 決定（SPACE または Enter）"
+			if (Input::GetInstance()->TriggerKey(DIK_SPACE) || Input::GetInstance()->TriggerKey(DIK_RETURN)) {
+				if (pauseMenuIndex_ == 0) {
+					// リスタート
+					Reset();
+					isPaused_ = false;
+					showControls_ = false;
+					// Reset() 内でフェード等を開始しているためここで処理を抜ける
+					return;
+				} else if (pauseMenuIndex_ == 1) {
+					// ステージセレクトへ戻る
+					finished_ = true;
+				}
+			}
+
+#ifdef _DEBUG
+
+			// ImGui メニュー表示（マウス操作にも対応）
 			ImGui::Begin("ポーズメニュー");
 			ImGui::Text("ポーズ中");
+			// 操作確認トグルはそのまま残す
 			if (ImGui::Button("操作確認")) {
 				showControls_ = !showControls_;
 			}
@@ -256,13 +378,28 @@ void GameScene::Update() {
 				ImGui::Separator();
 				ImGui::TextWrapped("操作方法:\n← → : 移動\nSPACE : ジャンプ\nR : リセット\nESC : ポーズ切替");
 			}
-			if (ImGui::Button("ステージセレクトに戻る")) {
-				// 現在のシーンを終了させてメインのシーン管理でステージセレクトに戻るようにする
+			ImGui::Separator();
+			ImGui::Text("↑/↓ で選択, SPACE/Enter で決定");
+
+			// 選択肢を表示。Selectableを使ってマウスクリックにも対応
+			if (ImGui::Selectable("1: リスタート", pauseMenuIndex_ == 0)) {
+				pauseMenuIndex_ = 0;
+				Reset();
+				isPaused_ = false;
+				showControls_ = false;
+				// Reset() の直後は更新を中止する
+				ImGui::End();
+				return;
+			}
+			if (ImGui::Selectable("2: ステージセレクトに戻る", pauseMenuIndex_ == 1)) {
+				pauseMenuIndex_ = 1;
 				finished_ = true;
 			}
+
 			ImGui::End();
 
-			// ポーズ中は以降のゲーム更新をスキップする（ただし共通処理は続ける）
+#endif // DEBUG
+       // ポーズ中は以降のゲーム更新をスキップする（ただし共通処理は続ける）
 			break;
 		}
 
@@ -284,6 +421,14 @@ void GameScene::Update() {
 		for (Enemy* enemy : enemies_) {
 			enemy->Update();
 		}
+		for (ChasingEnemy* enemy : chasingEnemies_) {
+			enemy->Update();
+		}
+		// 射撃敵の更新（追加）
+		for (ShooterEnemy* enemy : shooterEnemies_) {
+			enemy->Update();
+		}
+
 		cameraController_->Update();
 		CheckAllCollisions();
 		ChangePhase();
@@ -375,7 +520,10 @@ void GameScene::Update() {
 		camera_.TransferMatrix();
 	}
 
-	UI_->Update();
+	HUD_->Update();
+	if (isPaused_) {
+		UI_->Update();
+	}
 }
 
 void GameScene::Draw() {
@@ -402,6 +550,13 @@ void GameScene::Draw() {
 	for (Enemy* enemy : enemies_) {
 		enemy->Draw();
 	}
+	for (ChasingEnemy* enemy : chasingEnemies_) {
+		enemy->Draw();
+	}
+	// 射撃敵の描画（追加）
+	for (ShooterEnemy* enemy : shooterEnemies_) {
+		enemy->Draw();
+	}
 
 	// デスパーティクルの描画
 	if (deathParticles_) {
@@ -417,7 +572,25 @@ void GameScene::Draw() {
 	// フェードの描画
 	fade_->Draw();
 
-	UI_->Draw(player_);
+	Sprite::PreDraw(dxCommon->GetCommandList());
+	if (Input::GetInstance()->PushKey(DIK_J)) {
+		jSprite_->SetColor({0.5f, 0.5f, 0.5f, 1.0f});
+	} else {
+		jSprite_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
+	}
+	jSprite_->Draw();
+	if (Input::GetInstance()->PushKey(DIK_SPACE)) {
+		spaceSprite_->SetColor({0.5f, 0.5f, 0.5f, 1.0f});
+	} else {
+		spaceSprite_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
+	}
+	spaceSprite_->Draw();
+	Sprite::PostDraw();
+
+	HUD_->Draw(player_);
+	if (isPaused_) {
+		UI_->Draw(pauseMenuIndex_);
+	}
 }
 
 void GameScene::GenerateBlocks() {
@@ -464,7 +637,23 @@ void GameScene::CheckAllCollisions() {
 				// AABB同士の交差判定
 				if (IsColliding(aabb1, aabb2)) {
 					// 衝突応答
-					player_->OnCollision(enemy); //
+					player_->OnCollision(enemy->GetWorldTransform()); //
+					enemy->OnCollision(player_);                      //
+				}
+			}
+		}
+
+		// 自キャラと追尾する敵全ての当たり判定
+		for (ChasingEnemy* enemy : chasingEnemies_) {
+			if (player_->GetIsAlive() && enemy->GetIsAlive()) {
+				// 敵のAABBを取得
+				aabb2 = enemy->GetAABB();
+
+				// AABB同士の交差判定
+				if (IsColliding(aabb1, aabb2)) {
+					// 衝突応答
+					// Player側に OnCollision(ChasingEnemy*) の実装が別途必要になる可能性があります
+					player_->OnCollision(enemy->GetWorldTransform());
 					enemy->OnCollision(player_); //
 				}
 			}
@@ -479,6 +668,18 @@ void GameScene::CheckAllCollisions() {
 
 		// 自キャラと敵全ての当たり判定
 		for (Enemy* enemy : enemies_) {
+			// 敵のAABBを取得
+			aabb2 = enemy->GetAABB();
+
+			// AABB同士の交差判定
+			if (IsColliding(aabb1, aabb2)) {
+				// 衝突応答
+				enemy->SetIsAlive(false); //
+			}
+		}
+
+		// 自キャラと追尾する敵全ての当たり判定
+		for (ChasingEnemy* enemy : chasingEnemies_) {
 			// 敵のAABBを取得
 			aabb2 = enemy->GetAABB();
 
@@ -541,7 +742,18 @@ GameScene::~GameScene() {
 	delete modelSkydome_;
 	delete playerModel_;
 	delete goalModel_;
+	delete chasingEnemyModel_;
+	// shooterEnemyModel_ は現状未生成なら nullptr、生成済みなら delete してください
+	if (shooterEnemyModel_ && shooterEnemyModel_ != enemyModel_) {
+		delete shooterEnemyModel_;
+	}
 	for (Enemy* enemy : enemies_) {
+		delete enemy;
+	}
+	for (ChasingEnemy* enemy : chasingEnemies_) {
+		delete enemy;
+	}
+	for (ShooterEnemy* enemy : shooterEnemies_) { // 追加
 		delete enemy;
 	}
 
