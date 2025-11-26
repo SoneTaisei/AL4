@@ -15,6 +15,7 @@
 #include <Windows.h> // OutputDebugStringA を使うために必要
 #include <cstdio>    // sprintf_s を使うために必要
 #include <imgui.h>
+#include "System/GameTime.h"
 
 using namespace KamataEngine;
 
@@ -403,6 +404,8 @@ void GameScene::Update() {
 			break;
 		}
 
+		GameTime::Update();
+
 		// リセット処理を追加
 		if (Input::GetInstance()->TriggerKey(DIK_R)) {
 			Reset();
@@ -658,6 +661,33 @@ void GameScene::CheckAllCollisions() {
 				}
 			}
 		}
+
+		// 自キャラと射撃敵の当たり判定
+		for (ShooterEnemy* enemy : shooterEnemies_) {
+			if (player_->GetIsAlive() && enemy->GetIsAlive()) {
+				// 1. 敵本体との当たり判定
+				aabb2 = enemy->GetAABB();
+				if (IsColliding(aabb1, aabb2)) {
+					// 衝突応答（敵の座標を渡してノックバック）
+					player_->OnCollision(enemy->GetWorldTransform());
+					enemy->OnCollision(player_);
+				}
+
+				// 2. 敵の弾との当たり判定
+				const auto& projectiles = enemy->GetProjectiles();
+				for (const auto& projectile : projectiles) {
+					if (projectile->IsAlive()) {
+						aabb2 = projectile->GetAABB();
+						if (IsColliding(aabb1, aabb2)) {
+							// 衝突応答（弾の座標を渡してノックバック）
+							player_->OnCollision(projectile->GetWorldTransform());
+							// 弾側の衝突処理（消滅）
+							projectile->OnCollision();
+						}
+					}
+				}
+			}
+		}
 	}
 #pragma endregion
 
@@ -687,6 +717,17 @@ void GameScene::CheckAllCollisions() {
 			if (IsColliding(aabb1, aabb2)) {
 				// 衝突応答
 				enemy->SetIsAlive(false); //
+			}
+		}
+
+		for (ShooterEnemy* enemy : shooterEnemies_) {
+			// 敵のAABBを取得
+			aabb2 = enemy->GetAABB();
+
+			// AABB同士の交差判定
+			if (IsColliding(aabb1, aabb2)) {
+				// 衝突応答
+				enemy->SetIsAlive(false);
 			}
 		}
 	}

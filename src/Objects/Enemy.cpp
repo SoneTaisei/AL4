@@ -1,12 +1,13 @@
 #include "Enemy.h"
-#include "Utils/Easing.h"
+#include "Player.h"
+#include "System/GameTime.h"
 #include "System/MapChipField.h"
+#include "Utils/Easing.h"
 #include "Utils/TransformUpdater.h"
 #include <algorithm>
 #include <array>
-#include <numbers>
 #include <cmath>
-#include "Player.h"
+#include <numbers>
 
 using namespace KamataEngine;
 
@@ -96,7 +97,8 @@ void Enemy::MapCollisionRight(CollisionMapInfo& info) {
 	MapChipField::IndexSet indexSetTop = mapChipField_->GetMapChipIndexSetByPosition(rightTopCheck);
 	MapChipField::IndexSet indexSetBottom = mapChipField_->GetMapChipIndexSetByPosition(rightBottomCheck);
 	if (((mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ||
-	     (mapChipField_->GetMapChipTypeByIndex(indexSetBottom.xIndex, indexSetBottom.yIndex) == MapChipType::kBlock)) &&lrDirection_ == LRDirection::kRight) {
+	     (mapChipField_->GetMapChipTypeByIndex(indexSetBottom.xIndex, indexSetBottom.yIndex) == MapChipType::kBlock)) &&
+	    lrDirection_ == LRDirection::kRight) {
 		info.isWallContact = true;
 		MapChipField::IndexSet indexSet = (mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ? indexSetTop : indexSetBottom;
 		MapChipField::Rect blockRect = mapChipField_->GetRectByIndex(indexSet.xIndex, indexSet.yIndex);
@@ -115,7 +117,8 @@ void Enemy::MapCollisionLeft(CollisionMapInfo& info) {
 	MapChipField::IndexSet indexSetTop = mapChipField_->GetMapChipIndexSetByPosition(leftTopCheck);
 	MapChipField::IndexSet indexSetBottom = mapChipField_->GetMapChipIndexSetByPosition(leftBottomCheck);
 	if (((mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ||
-	    (mapChipField_->GetMapChipTypeByIndex(indexSetBottom.xIndex, indexSetBottom.yIndex) == MapChipType::kBlock))&&lrDirection_==LRDirection::kLeft) {
+	     (mapChipField_->GetMapChipTypeByIndex(indexSetBottom.xIndex, indexSetBottom.yIndex) == MapChipType::kBlock)) &&
+	    lrDirection_ == LRDirection::kLeft) {
 		info.isWallContact = true;
 		MapChipField::IndexSet indexSet = (mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ? indexSetTop : indexSetBottom;
 		MapChipField::Rect blockRect = mapChipField_->GetRectByIndex(indexSet.xIndex, indexSet.yIndex);
@@ -170,15 +173,14 @@ void Enemy::Update() {
 	}
 
 	// 死亡中のアニメーション処理
-	const float dt = 1.0f / 60.0f;
 	if (state_ == State::kDying) {
 		// シーケンシャル処理：まず回転、その後縮小フェード
 		float totalDuration = kDeathSpinDuration + kDeathShrinkDuration;
-		deathTimer_ += dt;
+		deathTimer_ += GameTime::GetDeltaTime();
 
 		if (deathTimer_ < kDeathSpinDuration) {
 			// 回転フェーズ：Y軸回転のみ
-			worldTransform_.rotation_.y += kDeathSpinSpeed * dt;
+			worldTransform_.rotation_.y += kDeathSpinSpeed * GameTime::GetDeltaTime();
 		} else {
 			// 縮小フェーズ（回転は停止）
 			float shrinkElapsed = deathTimer_ - kDeathSpinDuration;
@@ -186,10 +188,6 @@ void Enemy::Update() {
 			// スケール線形補間 1.0 -> 0.0
 			float scale = (1.0f - t) * kInitialScale;
 			worldTransform_.scale_ = {scale, scale, scale};
-			// アルファ線形補間 1.0 -> 0.0
-			color_.w = 1.0f - t;
-			// objectColor_ が API を提供するなら更新する（エンジンによって異なる）
-			// objectColor_.SetColor(color_); // 必要なら有効化
 		}
 
 		// 行列更新（回転・スケールの反映）
@@ -250,7 +248,7 @@ void Enemy::Update() {
 	}
 
 	// --- 3. アニメーションと向きの更新 ---
-	workTimer_ += dt;
+	workTimer_ += GameTime::GetDeltaTime();
 	float timeInCycle = std::fmod(workTimer_, kWalkMotionTime);
 	float progress = timeInCycle / kWalkMotionTime;
 	float sinArgument = progress * 2.0f * std::numbers::pi_v<float>;
