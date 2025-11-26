@@ -49,3 +49,16 @@ void Projectile::Draw() {
 	model_->Draw(worldTransform_, *camera_, textureHandle_);
 	Model::PostDraw();
 }
+
+AABB Projectile::GetAABB() {
+	Vector3 worldPos = GetWorldPosition();
+	AABB aabb;
+	aabb.min = {worldPos.x - kRadius / 2.0f, worldPos.y - kRadius / 2.0f, worldPos.z - kRadius / 2.0f};
+	aabb.max = {worldPos.x + kRadius / 2.0f, worldPos.y + kRadius / 2.0f, worldPos.z + kRadius / 2.0f};
+	return aabb;
+}
+
+void Projectile::OnCollision() {
+	// プレイヤーに当たったら弾は消える
+	alive_ = false;
+}
