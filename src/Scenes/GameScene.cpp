@@ -86,7 +86,7 @@ void GameScene::Reset() {
 				Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(x, y);
 				ShooterEnemy* newEnemy = new ShooterEnemy();
 				// 既存の敵モデルを流用（別モデルを使う場合は shooterEnemyModel_/shooterEnemyTextureHandle_ を用意して差し替えてください）
-				newEnemy->Initialize(enemyModel_, enemyTextureHandle_, &camera_, enemyPosition);
+				newEnemy->Initialize(shooterEnemyModel_, projectileModel_, shooterEnemyTextureHandle_, projectileTextureHandle_, &camera_, enemyPosition);
 				newEnemy->SetMapChipField(mapChipField_);
 				newEnemy->SetPlayer(player_);
 				shooterEnemies_.push_back(newEnemy);
@@ -115,9 +115,10 @@ void GameScene::Initialize(int stageNo) {
 	enemyTextureHandle_ = TextureManager::Load("AL3_Enemy/Enemy.png");
 	chasingEnemyTextureHandle_ = TextureManager::Load("AL3_ChasingEnemy/ChasingEnemy.png");
 	// shooter 用に個別ロードしたい場合はここでロードしてください。現状は enemy のアセットを使い回します。
-	// shooterEnemyTextureHandle_ = TextureManager::Load("AL3_ShooterEnemy/Shooter.png");
+	shooterEnemyTextureHandle_ = TextureManager::Load("AL3_ShooterEnemy/ShooterEnemy.png");
 	skysphereTextureHandle = TextureManager::Load("skydome/AL_skysphere.png");
 	particleTextureHandle = TextureManager::Load("AL3_Particle/AL3_Particle.png");
+	projectileTextureHandle_ = TextureManager::Load("ball/ball.png"); // 例
 
 	// 3Dモデルの生成
 	cubeModel_ = Model::CreateFromOBJ("debugCube");
@@ -129,11 +130,12 @@ void GameScene::Initialize(int stageNo) {
 	enemyModel_ = Model::CreateFromOBJ("AL3_Enemy", true);
 	chasingEnemyModel_ = Model::CreateFromOBJ("AL3_ChasingEnemy", true);
 	// shooterEnemyModel_ を別に用意する場合はここで生成（現状は enemyModel_ を使い回す）
-	// shooterEnemyModel_ = Model::CreateFromOBJ("AL3_ShooterEnemy", true);
+	shooterEnemyModel_ = Model::CreateFromOBJ("AL3_ShooterEnemy", true);
 	// パーティクルのモデル生成
 	particleModel_ = Model::CreateFromOBJ("AL3_Particle", true);
 	// ゴールのモデル生成
 	goalModel_ = Model::CreateFromOBJ("goal", true);
+	projectileModel_ = Model::CreateFromOBJ("ball", true); // 例
 
 	// 座標変換の初期化
 	worldTransform_.Initialize();
@@ -230,7 +232,7 @@ void GameScene::Initialize(int stageNo) {
 			} else if (t == MapChipType::kShooter) { // 追加: マップチップ5 -> 射撃敵
 				Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(x, y);
 				ShooterEnemy* newEnemy = new ShooterEnemy();
-				newEnemy->Initialize(enemyModel_, enemyTextureHandle_, &camera_, enemyPosition);
+				newEnemy->Initialize(shooterEnemyModel_, projectileModel_, shooterEnemyTextureHandle_, projectileTextureHandle_, &camera_, enemyPosition);
 				newEnemy->SetMapChipField(mapChipField_);
 				newEnemy->SetPlayer(player_);
 				shooterEnemies_.push_back(newEnemy);
