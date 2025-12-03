@@ -3,11 +3,12 @@
 
 using namespace KamataEngine;
 
-void Projectile::Initialize(Model* model, uint32_t textureHandle, Camera* camera,
-                            const Vector3& position, const Vector3& velocity, float lifeTime) {
+void Projectile::Initialize(Model* model, uint32_t textureHandle, Camera* camera, const Vector3& position, const Vector3& velocity, MapChipField* mapChipField, float lifeTime) {
 	model_ = model;
 	textureHandle_ = textureHandle;
 	camera_ = camera;
+
+	mapChipField_ = mapChipField;
 
 	worldTransform_.Initialize();
 	worldTransform_.translation_ = position;
@@ -32,6 +33,17 @@ void Projectile::Update() {
 	// 行列更新
 	TransformUpdater::WorldTransformUpdate(worldTransform_);
 	worldTransform_.TransferMatrix();
+
+	// --- マップ衝突判定 ---
+	if (mapChipField_) {
+		// 現在の座標がマップチップのどのインデックスか取得
+		MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(worldTransform_.translation_);
+
+		// その場所がブロックなら弾を消す
+		if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) == MapChipType::kBlock) {
+			alive_ = false;
+		}
+	}
 
 	// 寿命処理
 	lifeTime_ -= dt;

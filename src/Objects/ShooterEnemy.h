@@ -33,7 +33,15 @@ private:
 
 	// 射撃関連
 	std::vector<std::unique_ptr<Projectile>> projectiles_;
-	static inline const float kShootInterval = 2.0f;
+	static inline const float kShootInterval = 5.0f;
+
+	// 攻撃予兆を開始する時間（発射の何秒前から膨らみ始めるか）
+	static inline const float kChargeDuration = 1.0f;
+	// 最大まで膨らんだときの倍率
+	static inline const float kMaxChargeScale = 1.5f;
+	// 発射後に元の大きさに戻るまでの時間（反動時間）
+	static inline const float kRecoilDuration = 0.1f;
+
 	float shootTimer_ = 0.0f;
 	static inline const float kProjectileSpeed = 5.0f;
 
@@ -68,8 +76,15 @@ private:
 	void MapCollisionRight(KamataEngine::Vector3& move);
 	void MapCollisionLeft(KamataEngine::Vector3& move);
 
+	// 弾用のモデルとテクスチャハンドル
+	KamataEngine::Model* projectileModel_ = nullptr;
+	uint32_t projectileTextureHandle_ = 0;
+
 public:
-	void Initialize(KamataEngine::Model* model, uint32_t textureHandle, KamataEngine::Camera* camera, const KamataEngine::Vector3& position);
+	// 引数に projectileModel と projectileTextureHandle を追加
+	void Initialize(
+	    KamataEngine::Model* model, KamataEngine::Model* projectileModel, uint32_t textureHandle, uint32_t projectileTextureHandle, KamataEngine::Camera* camera,
+	    const KamataEngine::Vector3& position);
 	void SetMapChipField(MapChipField* field) { mapChipField_ = field; }
 	void SetPlayer(const Player* player) { player_ = player; }
 

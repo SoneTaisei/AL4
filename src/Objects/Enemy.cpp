@@ -92,17 +92,37 @@ void Enemy::MapCollisionRight(CollisionMapInfo& info) {
 	}
 	const float checkHeight = kHeight * 0.8f;
 	Vector3 centerNew = worldTransform_.translation_ + info.move;
+
+	// --- 1. 壁判定 (既存の処理) ---
 	Vector3 rightTopCheck = centerNew + Vector3{kWidth / 2.0f, checkHeight / 2.0f, 0.0f};
 	Vector3 rightBottomCheck = centerNew + Vector3{kWidth / 2.0f, -checkHeight / 2.0f, 0.0f};
 	MapChipField::IndexSet indexSetTop = mapChipField_->GetMapChipIndexSetByPosition(rightTopCheck);
 	MapChipField::IndexSet indexSetBottom = mapChipField_->GetMapChipIndexSetByPosition(rightBottomCheck);
+
 	if (((mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ||
 	     (mapChipField_->GetMapChipTypeByIndex(indexSetBottom.xIndex, indexSetBottom.yIndex) == MapChipType::kBlock)) &&
 	    lrDirection_ == LRDirection::kRight) {
+
 		info.isWallContact = true;
 		MapChipField::IndexSet indexSet = (mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ? indexSetTop : indexSetBottom;
 		MapChipField::Rect blockRect = mapChipField_->GetRectByIndex(indexSet.xIndex, indexSet.yIndex);
 		info.move.x = blockRect.left - kWidth / 2.0f - worldTransform_.translation_.x;
+
+		// 壁に当たったらその時点で処理終了
+		return;
+	}
+
+	// --- 2. 崖判定 (★追加) ---
+	// 右下のさらに少し下を調べる
+	Vector3 rightFloorCheck = centerNew + Vector3{kWidth / 2.0f, -kHeight / 2.0f - 0.2f, 0.0f};
+	MapChipField::IndexSet indexSetFloor = mapChipField_->GetMapChipIndexSetByPosition(rightFloorCheck);
+
+	// 足元がブロックでなければ（＝穴なら）壁と同じ扱いにする
+	if (mapChipField_->GetMapChipTypeByIndex(indexSetFloor.xIndex, indexSetFloor.yIndex) != MapChipType::kBlock) {
+		if (lrDirection_ == LRDirection::kRight) {
+			info.isWallContact = true; // これをtrueにするとUpdate内で反転処理が走る
+			info.move.x = 0.0f;        // 進ませない
+		}
 	}
 }
 
@@ -112,17 +132,37 @@ void Enemy::MapCollisionLeft(CollisionMapInfo& info) {
 	}
 	const float checkHeight = kHeight * 0.8f;
 	Vector3 centerNew = worldTransform_.translation_ + info.move;
+
+	// --- 1. 壁判定 (既存の処理) ---
 	Vector3 leftTopCheck = centerNew + Vector3{-kWidth / 2.0f, checkHeight / 2.0f, 0.0f};
 	Vector3 leftBottomCheck = centerNew + Vector3{-kWidth / 2.0f, -checkHeight / 2.0f, 0.0f};
 	MapChipField::IndexSet indexSetTop = mapChipField_->GetMapChipIndexSetByPosition(leftTopCheck);
 	MapChipField::IndexSet indexSetBottom = mapChipField_->GetMapChipIndexSetByPosition(leftBottomCheck);
+
 	if (((mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ||
 	     (mapChipField_->GetMapChipTypeByIndex(indexSetBottom.xIndex, indexSetBottom.yIndex) == MapChipType::kBlock)) &&
 	    lrDirection_ == LRDirection::kLeft) {
+
 		info.isWallContact = true;
 		MapChipField::IndexSet indexSet = (mapChipField_->GetMapChipTypeByIndex(indexSetTop.xIndex, indexSetTop.yIndex) == MapChipType::kBlock) ? indexSetTop : indexSetBottom;
 		MapChipField::Rect blockRect = mapChipField_->GetRectByIndex(indexSet.xIndex, indexSet.yIndex);
 		info.move.x = blockRect.right + kWidth / 2.0f - worldTransform_.translation_.x;
+
+		// 壁に当たったらその時点で処理終了
+		return;
+	}
+
+	// --- 2. 崖判定 (★追加) ---
+	// 左下のさらに少し下を調べる
+	Vector3 leftFloorCheck = centerNew + Vector3{-kWidth / 2.0f, -kHeight / 2.0f - 0.2f, 0.0f};
+	MapChipField::IndexSet indexSetFloor = mapChipField_->GetMapChipIndexSetByPosition(leftFloorCheck);
+
+	// 足元がブロックでなければ（＝穴なら）壁と同じ扱いにする
+	if (mapChipField_->GetMapChipTypeByIndex(indexSetFloor.xIndex, indexSetFloor.yIndex) != MapChipType::kBlock) {
+		if (lrDirection_ == LRDirection::kLeft) {
+			info.isWallContact = true; // これをtrueにするとUpdate内で反転処理が走る
+			info.move.x = 0.0f;        // 進ませない
+		}
 	}
 }
 

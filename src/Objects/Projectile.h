@@ -15,12 +15,15 @@ private:
 	float lifeTime_ = 0.0f; // 残り寿命（秒）
 	bool alive_ = false;
 
+	// マップチップフィールドへのポインタ
+	MapChipField* mapChipField_ = nullptr;
+
 	// 弾の当たり判定サイズ
 	static inline const float kRadius = 0.5f;
 
 public:
-	void Initialize(KamataEngine::Model* model, uint32_t textureHandle, KamataEngine::Camera* camera,
-	                const KamataEngine::Vector3& position, const KamataEngine::Vector3& velocity, float lifeTime = 5.0f);
+	void Initialize(KamataEngine::Model* model, uint32_t textureHandle, KamataEngine::Camera* camera, const KamataEngine::Vector3& position, const KamataEngine::Vector3& velocity, MapChipField* mapChipField,
+	    float lifeTime = 5.0f);
 
 	void Update();
 	void Draw();

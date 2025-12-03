@@ -51,6 +51,7 @@ private:
 	uint32_t shooterEnemyTextureHandle_ = 0; // 追加
 	uint32_t skysphereTextureHandle = 0;
 	uint32_t particleTextureHandle = 0;
+	uint32_t projectileTextureHandle_ = 0;
 
 	// ブロックの3Dモデル
 	KamataEngine::Model* cubeModel_ = nullptr;
@@ -66,6 +67,8 @@ private:
 	KamataEngine::Model* shooterEnemyModel_ = nullptr; // 追加
 	// パーティクルのモデル
 	KamataEngine::Model* particleModel_ = nullptr;
+	// 弾用の3Dモデル
+	KamataEngine::Model* projectileModel_ = nullptr;
 
 
 	// 座標変換

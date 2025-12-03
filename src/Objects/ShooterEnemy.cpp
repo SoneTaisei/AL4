@@ -9,10 +9,13 @@
 
 using namespace KamataEngine;
 
-void ShooterEnemy::Initialize(Model* model, uint32_t textureHandle, Camera* camera, const Vector3& position) {
+void ShooterEnemy::Initialize(Model* model, Model* projectileModel, uint32_t textureHandle, uint32_t projectileTextureHandle, Camera* camera, const Vector3& position) {
 	model_ = model;
 	textureHandle_ = textureHandle;
 	camera_ = camera;
+
+	projectileModel_ = projectileModel;
+	projectileTextureHandle_ = projectileTextureHandle;
 
 	worldTransform_.Initialize();
 	worldTransform_.translation_ = position;
@@ -47,20 +50,35 @@ void ShooterEnemy::Initialize(Model* model, uint32_t textureHandle, Camera* came
 }
 
 void ShooterEnemy::MapCollisionRight(Vector3& move) {
-	if (!mapChipField_)
-		return;
-	if (move.x <= 0)
-		return;
+	// --- 1. 壁判定 (既存の処理) ---
 	const float checkHeight = kHeight * 0.8f;
 	Vector3 centerNew = worldTransform_.translation_ + move;
 	Vector3 rightTopCheck = centerNew + Vector3{kWidth / 2.0f, checkHeight / 2.0f, 0.0f};
 	Vector3 rightBottomCheck = centerNew + Vector3{kWidth / 2.0f, -checkHeight / 2.0f, 0.0f};
+
 	auto idxTop = mapChipField_->GetMapChipIndexSetByPosition(rightTopCheck);
 	auto idxBottom = mapChipField_->GetMapChipIndexSetByPosition(rightBottomCheck);
+
 	if ((mapChipField_->GetMapChipTypeByIndex(idxTop.xIndex, idxTop.yIndex) == MapChipType::kBlock ||
 	     mapChipField_->GetMapChipTypeByIndex(idxBottom.xIndex, idxBottom.yIndex) == MapChipType::kBlock) &&
 	    lrDirection_ == LRDirection::kRight) {
 		// 壁接触 -> 反転
+		lrDirection_ = LRDirection::kLeft;
+		move.x = 0.0f;
+
+		turnFirstRotationY_ = worldTransform_.rotation_.y;
+		turnTimer_ = 0.0f;
+		return; // 壁に当たったらここで終了
+	}
+
+	// --- 2. 崖判定 (★追加処理) ---
+	// 「移動先の足元」をチェックする
+	// 右端(kWidth/2.0f) のさらに少し下(-checkHeight / 2.0f - 0.2f) を調べる
+	Vector3 rightFloorCheck = centerNew + Vector3{kWidth / 2.0f, -kHeight / 2.0f - 0.2f, 0.0f};
+	auto idxFloor = mapChipField_->GetMapChipIndexSetByPosition(rightFloorCheck);
+
+	// 足元がブロックじゃなかったら（＝穴だったら）反転
+	if (mapChipField_->GetMapChipTypeByIndex(idxFloor.xIndex, idxFloor.yIndex) != MapChipType::kBlock) {
 		lrDirection_ = LRDirection::kLeft;
 		move.x = 0.0f;
 
@@ -74,15 +92,35 @@ void ShooterEnemy::MapCollisionLeft(Vector3& move) {
 		return;
 	if (move.x >= 0)
 		return;
+
+	// --- 1. 壁判定 (既存の処理) ---
 	const float checkHeight = kHeight * 0.8f;
 	Vector3 centerNew = worldTransform_.translation_ + move;
 	Vector3 leftTopCheck = centerNew + Vector3{-kWidth / 2.0f, checkHeight / 2.0f, 0.0f};
 	Vector3 leftBottomCheck = centerNew + Vector3{-kWidth / 2.0f, -checkHeight / 2.0f, 0.0f};
+
 	auto idxTop = mapChipField_->GetMapChipIndexSetByPosition(leftTopCheck);
 	auto idxBottom = mapChipField_->GetMapChipIndexSetByPosition(leftBottomCheck);
+
 	if ((mapChipField_->GetMapChipTypeByIndex(idxTop.xIndex, idxTop.yIndex) == MapChipType::kBlock ||
 	     mapChipField_->GetMapChipTypeByIndex(idxBottom.xIndex, idxBottom.yIndex) == MapChipType::kBlock) &&
 	    lrDirection_ == LRDirection::kLeft) {
+		lrDirection_ = LRDirection::kRight;
+		move.x = 0.0f;
+
+		turnFirstRotationY_ = worldTransform_.rotation_.y;
+		turnTimer_ = 0.0f;
+		return; // 壁に当たったらここで終了
+	}
+
+	// --- 2. 崖判定 (★追加処理) ---
+	// 「移動先の足元」をチェックする
+	// 左端(-kWidth/2.0f) のさらに少し下(-kHeight / 2.0f - 0.2f) を調べる
+	Vector3 leftFloorCheck = centerNew + Vector3{-kWidth / 2.0f, -kHeight / 2.0f - 0.2f, 0.0f};
+	auto idxFloor = mapChipField_->GetMapChipIndexSetByPosition(leftFloorCheck);
+
+	// 足元がブロックじゃなかったら（＝穴だったら）反転
+	if (mapChipField_->GetMapChipTypeByIndex(idxFloor.xIndex, idxFloor.yIndex) != MapChipType::kBlock) {
 		lrDirection_ = LRDirection::kRight;
 		move.x = 0.0f;
 
@@ -93,19 +131,19 @@ void ShooterEnemy::MapCollisionLeft(Vector3& move) {
 
 void ShooterEnemy::Update() {
 
-	// --- 追加: 弾の更新は死んでいても常に行う ---
+	// --- 弾の更新は死んでいても常に行う ---
 	for (auto& p : projectiles_) {
 		if (p && p->IsAlive())
 			p->Update();
 	}
 	projectiles_.erase(std::remove_if(projectiles_.begin(), projectiles_.end(), [](const std::unique_ptr<Projectile>& p) { return !p || !p->IsAlive(); }), projectiles_.end());
 
-	// --- 追加: 完全に死亡(kDead)なら、これ以降の移動処理は行わない ---
+	// --- 完全に死亡(kDead)なら、これ以降の移動処理は行わない ---
 	if (state_ == State::kDead) {
 		return;
 	}
 
-	// --- 追加: 死亡演出中(kDying)のアニメーション処理 ---
+	// --- 死亡演出中(kDying)のアニメーション処理 ---
 	if (state_ == State::kDying) {
 		float totalDuration = kDeathSpinDuration + kDeathShrinkDuration;
 		deathTimer_ += GameTime::GetDeltaTime();
@@ -165,23 +203,59 @@ void ShooterEnemy::Update() {
 
 	// 発射タイマー
 	shootTimer_ += GameTime::GetDeltaTime();
-	if (shootTimer_ >= kShootInterval && player_ && model_) {
+
+	// --- スケール制御（反動・通常・予兆） ---
+
+	// 発射までの残り時間
+	float timeToShoot = kShootInterval - shootTimer_;
+
+	// 1. 【反動フェーズ】 発射直後（タイマーがまだ小さい時）
+	if (shootTimer_ < kRecoilDuration) {
+		// 進行度 t (0.0 → 1.0)
+		float t = shootTimer_ / kRecoilDuration;
+
+		// 最大サイズ(kMaxChargeScale) から 通常サイズ(kInitialScale) へ戻る
+		// 計算式: Start + (End - Start) * t
+		float scale = kMaxChargeScale + (kInitialScale - kMaxChargeScale) * t;
+		worldTransform_.scale_ = {scale, scale, scale};
+	}
+	// 2. 【攻撃予兆フェーズ】 発射直前（残り時間が1秒を切った時）
+	else if (timeToShoot <= kChargeDuration && timeToShoot > 0.0f) {
+		// 進行度 t (0.0 → 1.0)
+		float t = 1.0f - (timeToShoot / kChargeDuration);
+
+		// 通常サイズ(kInitialScale) から 最大サイズ(kMaxChargeScale) へ膨らむ
+		float scale = kInitialScale + (kMaxChargeScale - kInitialScale) * t;
+		worldTransform_.scale_ = {scale, scale, scale};
+	}
+	// 3. 【通常待機フェーズ】 それ以外
+	else {
+		worldTransform_.scale_ = {kInitialScale, kInitialScale, kInitialScale};
+	}
+
+	if (shootTimer_ >= kShootInterval && model_) {
 		shootTimer_ = 0.0f;
-		// プレイヤーの位置へ向けて弾を作る
+
+		// 発射位置（敵のワールド座標）
 		Vector3 enemyPos = {worldTransform_.matWorld_.m[3][0], worldTransform_.matWorld_.m[3][1], worldTransform_.matWorld_.m[3][2]};
-		Vector3 playerPos = player_->GetWorldPosition();
-		Vector3 dir = {playerPos.x - enemyPos.x, playerPos.y - enemyPos.y, playerPos.z - enemyPos.z};
-		// 正規化
-		float len = std::sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
-		if (len > 0.001f) {
-			dir.x /= len;
-			dir.y /= len;
-			dir.z /= len;
+
+		// 敵の向いている方向(lrDirection_)に応じて発射方向を決める
+		Vector3 dir = {0.0f, 0.0f, 0.0f};
+		if (lrDirection_ == LRDirection::kLeft) {
+			dir = {-1.0f, 0.0f, 0.0f}; // 左向き
+		} else {
+			dir = {1.0f, 0.0f, 0.0f}; // 右向き
 		}
-		Vector3 vel = {dir.x * kProjectileSpeed, 0, 0};
+
+		// 速度ベクトルを計算
+		Vector3 vel = {dir.x * kProjectileSpeed, dir.y * kProjectileSpeed, dir.z * kProjectileSpeed};
 
 		auto p = std::make_unique<Projectile>();
-		p->Initialize(model_, textureHandle_, camera_, enemyPos, vel, 5.0f);
+
+		// 弾の生成
+		// (これまでの修正：モデル、テクスチャ、マップチップフィールドを渡す引数になっています)
+		p->Initialize(projectileModel_, projectileTextureHandle_, camera_, enemyPos, vel, mapChipField_, 5.0f);
+
 		projectiles_.push_back(std::move(p));
 	}
 
@@ -244,7 +318,7 @@ void ShooterEnemy::OnCollision(const Player* player) {
 }
 
 void ShooterEnemy::SetIsAlive(bool isAlive) {
-	// --- 追加: Enemy.cpp と同様の状態遷移 ---
+	// --- Enemy.cpp と同様の状態遷移 ---
 	if (isAlive) {
 		// 復活・初期化
 		state_ = State::kAlive;
@@ -259,6 +333,7 @@ void ShooterEnemy::SetIsAlive(bool isAlive) {
 			deathTimer_ = 0.0f;
 			// 動きを止める
 			velocity_ = {0.0f, 0.0f, 0.0f};
+			projectiles_.clear();
 		}
 	}
 }
