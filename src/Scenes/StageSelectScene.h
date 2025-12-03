@@ -11,6 +11,7 @@ private:
 	enum class Phase {
 		kFadeIn,  // フェードイン
 		kMain,    // メイン処理
+		kSelected,// セレクトされた後の処理
 		kFadeOut, // フェードアウト
 	};
 
@@ -25,6 +26,15 @@ private:
 	Skydome* skydome_ = nullptr;
 	std::vector<KamataEngine::WorldTransform*> stageCubeTransforms_;
 	KamataEngine::WorldTransform* cursorTransform_ = nullptr;
+	KamataEngine::Vector3 rotationSpeed = {};
+	float selectionJumpHeight_ = 0.0f;
+	float jumpVelocity_ = 0.0f;
+
+	// 演出用タイマー（フレーム数をカウント）
+	int selectionTimer_ = 0;
+
+	// 演出を何フレーム続けるかの定数（例：60フレーム = 約1秒）
+	const int kSelectionDuration = 120;
 
 	// ステージの総数
 	int maxStages_ = 3;

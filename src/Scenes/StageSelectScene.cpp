@@ -1,6 +1,6 @@
 #include "StageSelectScene.h"
 #include "Effects/Fade.h"
-#include "Effects/Skydome.h"          // Skydomeクラスを使うために必要
+#include "Effects/Skydome.h"        // Skydomeクラスを使うために必要
 #include "Utils/TransformUpdater.h" // WorldTransformの更新に必要
 #include <memory>
 
@@ -29,8 +29,8 @@ void StageSelectScene::Initialize() {
 
 	// ステージ選択肢の立方体
 	for (int i = 0; i < maxStages_; ++i) {
-		//int row = i / 5; // 0～4なら0, 5～9なら1
-		//int col = i % 5; // 0～4の繰り返し
+		// int row = i / 5; // 0～4なら0, 5～9なら1
+		// int col = i % 5; // 0～4の繰り返し
 
 		// 上の段はY=5.0f, 下の段はY=-5.0fに配置
 		Vector3 iconPos = {-10.0f + i * 10.0f, 0.0f, 0.0f};
@@ -92,16 +92,72 @@ void StageSelectScene::Update() {
 			}
 		}
 		// 上下キー
-		//if (Input::GetInstance()->TriggerKey(DIK_UP) || Input::GetInstance()->TriggerKey(DIK_DOWN)) {
+		// if (Input::GetInstance()->TriggerKey(DIK_UP) || Input::GetInstance()->TriggerKey(DIK_DOWN)) {
 		//	cursorRow_ = 1 - cursorRow_; // 0なら1に、1なら0に切り替える
 		//}
 
 		// 行と列から最終的なステージ番号を計算
 		selectedStageIndex_ = cursorRow_ * 5 + cursorCol_;
 
+		rotationSpeed.y = 0.05f;
+
 		// SPACEキーが押されたらフェードアウトを開始
 		if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
-			fade_->Start(Fade::Status::FadeOut, 1.0f); // 1秒でフェードアウト
+			// ここではまだフェードアウトしない
+			// SE（決定音）を鳴らすならここ
+			selectionTimer_ = 0;         // タイマーリセット
+			phase_ = Phase::kSelected;   // フェーズ移行
+			selectionJumpHeight_ = 0.0f; // 位置はリセット
+			jumpVelocity_ = 0.8f;
+		}
+		break;
+	case Phase::kSelected:
+		selectionTimer_++;
+
+		// --- 演出処理 ---
+
+		// 1. 回転（既存）
+		rotationSpeed.y = 0.5f;
+
+		if (selectionJumpHeight_ > -5.0f || jumpVelocity_ > -5.0f) {
+
+			// 重力をかける
+			jumpVelocity_ -= 0.05f;
+			// 速度分移動する
+			selectionJumpHeight_ += jumpVelocity_;
+
+			// ★ここが重要：着地判定（貫通防止）
+			// もし地面（0.0f）より下に行ってしまったら
+			if (selectionJumpHeight_ <= -5.0f) {
+				selectionJumpHeight_ = -5.0f; // 位置を強制的に地面(0)に戻す
+				jumpVelocity_ = -5.0f;        // 速度を0にして止める
+			}
+		}
+
+		// ※解説：
+		// 最初は velocity が 0.8 なので上昇します。
+		// やがて velocity がマイナスになると落下し始めます。
+		// selectionJumpHeight_ が -4.0f に達すると、ちょうど箱の中（高さ0）になります。
+
+		// 3. キューブのぼよん演出（既存のまま）
+		if (selectionTimer_ >= 30) {
+			float wobbleSpeed = 0.5f;
+			float wobbleAmount = 0.5f;
+			float wobble = std::sin((float)selectionTimer_ * wobbleSpeed) * wobbleAmount;
+			float baseScale = 2.0f;
+			stageCubeTransforms_[selectedStageIndex_]->scale_ = {baseScale - wobble, baseScale + wobble, baseScale - wobble};
+		}
+
+		if (jumpVelocity_ < 0.0f) {
+			// 0.95倍ずつ小さくする（最小0まで）
+			cursorTransform_->scale_.x *= 0.95f;
+			cursorTransform_->scale_.y *= 0.95f;
+			cursorTransform_->scale_.z *= 0.95f;
+		}
+
+		// 指定時間でフェードアウト
+		if (selectionTimer_ >= kSelectionDuration) {
+			fade_->Start(Fade::Status::FadeOut, 1.0f);
 			phase_ = Phase::kFadeOut;
 		}
 		break;
@@ -119,10 +175,10 @@ void StageSelectScene::Update() {
 	// カーソルの3D座標を更新する
 	// 選択されている立方体の上あたりに配置
 	Vector3 selectedCubePos = stageCubeTransforms_[selectedStageIndex_]->translation_;
-	cursorTransform_->translation_ = {selectedCubePos.x, selectedCubePos.y + 4.0f, selectedCubePos.z};
+	cursorTransform_->translation_ = {selectedCubePos.x, selectedCubePos.y + 4.0f + selectionJumpHeight_, selectedCubePos.z};
 
 	// カーソルをクルクル回転させる演出 (変更なし)
-	cursorTransform_->rotation_.y += 0.05f;
+	cursorTransform_->rotation_.y += rotationSpeed.y;
 
 	// 全てのWorldTransformの行列を更新 (変更なし)
 	for (WorldTransform* transform : stageCubeTransforms_) {
