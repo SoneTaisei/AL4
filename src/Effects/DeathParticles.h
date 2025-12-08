@@ -51,7 +51,6 @@ private:
 	// ワールドトランスフォーム
 	std::array<KamataEngine::WorldTransform, kNumParticles> worldTransforms_;
 
-	// --- 以下を追加 ---
 	// 存続時間（消滅までの時間）<秒>
 	static inline const float kDuration = 1.0f;
 	// 移動の速さ

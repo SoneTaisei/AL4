@@ -81,7 +81,7 @@ private:
 	uint32_t projectileTextureHandle_ = 0;
 
 public:
-	// 引数に projectileModel と projectileTextureHandle を追加
+	// 引数に projectileModel と projectileTextureHandle
 	void Initialize(
 	    KamataEngine::Model* model, KamataEngine::Model* projectileModel, uint32_t textureHandle, uint32_t projectileTextureHandle, KamataEngine::Camera* camera,
 	    const KamataEngine::Vector3& position);

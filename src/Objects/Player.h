@@ -161,9 +161,9 @@ private:
 
 	// マップ衝突判定の個別方向判定関数
 	void MapCollisionUp(CollisionMapInfo& info); // 上方向判定
-	void MapCollisionDown(CollisionMapInfo& info); // 下方向判定 (後で追加)
-	void MapCollisionRight(CollisionMapInfo& info); // 右方向判定 (後で追加)
-	void MapCollisionLeft(CollisionMapInfo& info); // 左方向判定 (後で追加)
+	void MapCollisionDown(CollisionMapInfo& info); // 下方向判定 
+	void MapCollisionRight(CollisionMapInfo& info); // 右方向判定
+	void MapCollisionLeft(CollisionMapInfo& info); // 左方向判定 
 
 	/// <summary>
 	/// 判定結果を反映して移動させる
@@ -268,7 +268,6 @@ public:
 
 	bool GetIsAttacking() const { return isAttacking_; }
 
-	// public にゲッターを追加
 	static float GetGravityAcceleration() { return kGravityAcceleration; }
 
 };

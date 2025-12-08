@@ -1,12 +1,12 @@
 #pragma once
+#include "Effects/Fade.h"
 #include "KamataEngine.h"
 #include <list>
-#include "Effects/Fade.h"
 
 class Player;
 class Enemy;
 class ChasingEnemy;
-class ShooterEnemy; // 追加
+class ShooterEnemy;
 class Skydome;
 class MapChipField;
 class CameraController;
@@ -19,10 +19,9 @@ class HUD;
 class GameScene {
 private:
 	/*********************************************************
-	*メンバ変数
-	*********************************************************/
-	
-	// 現在の重力方向を管理するenum
+	 *メンバ変数
+	 *********************************************************/
+
 	enum class GravityDirection {
 		kDown,
 		kRight,
@@ -34,11 +33,12 @@ private:
 	// カメラの目標角度 Z軸
 	float cameraTargetAngleZ_ = 0.0f;
 
-	// フェーズにFadeInとFadeOutを追加
+	// kStageStart
 	enum class Phase {
-		kFadeIn,  // フェードイン
-		kPlay,    // ゲームプレイ
-		kDeath,   // デス演出
+		kStageStart, // ステージ開始（暗転・番号表示）
+		kFadeIn,     // フェードイン
+		kPlay,       // ゲームプレイ
+		kDeath,      // デス演出
 		kDeathFadeOut,
 		kFadeOut, // フェードアウト
 	};
@@ -48,140 +48,72 @@ private:
 	uint32_t playerTextureHandle_ = 0;
 	uint32_t enemyTextureHandle_ = 0;
 	uint32_t chasingEnemyTextureHandle_ = 0;
-	uint32_t shooterEnemyTextureHandle_ = 0; // 追加
+	uint32_t shooterEnemyTextureHandle_ = 0;
 	uint32_t skysphereTextureHandle = 0;
 	uint32_t particleTextureHandle = 0;
 	uint32_t projectileTextureHandle_ = 0;
 
-	// ブロックの3Dモデル
+	// モデル
 	KamataEngine::Model* cubeModel_ = nullptr;
-	// 天球の3Dモデル
 	KamataEngine::Model* modelSkydome_ = nullptr;
-	// プレイヤーの3Dモデル
 	KamataEngine::Model* playerModel_ = nullptr;
-	// 敵の3Dモデル
 	KamataEngine::Model* enemyModel_ = nullptr;
-	// 追尾する敵の3Dモデル
 	KamataEngine::Model* chasingEnemyModel_ = nullptr;
-	// 射撃する敵の3Dモデル
-	KamataEngine::Model* shooterEnemyModel_ = nullptr; // 追加
-	// パーティクルのモデル
+	KamataEngine::Model* shooterEnemyModel_ = nullptr;
 	KamataEngine::Model* particleModel_ = nullptr;
-	// 弾用の3Dモデル
 	KamataEngine::Model* projectileModel_ = nullptr;
 
-
-	// 座標変換
 	KamataEngine::WorldTransform worldTransform_;
-	// カメラ
 	KamataEngine::Camera camera_;
-
-	// ブロック用の座標変換。複数並べるために配列にする。std::vectorを重ねることで二次元配列にしている
 	std::vector<std::vector<KamataEngine::WorldTransform*>> worldTransformBlocks_;
-
-	// デバッグカメラ
 	KamataEngine::DebugCamera* debugCamera_ = nullptr;
 	bool isDebugCameraActive_ = false;
 
-	// 自キャラ
 	Player* player_ = nullptr;
-
-	// 敵キャラ
 	std::list<Enemy*> enemies_;
-	// 追尾する敵キャラ
 	std::list<ChasingEnemy*> chasingEnemies_;
-	// 射撃する敵キャラ
-	std::list<ShooterEnemy*> shooterEnemies_; // 追加
-
-	// 天球
+	std::list<ShooterEnemy*> shooterEnemies_;
 	Skydome* skydome_ = nullptr;
-
-	// マップチップフィールド
 	MapChipField* mapChipField_;
-
-	// カメラコントローラー
 	CameraController* cameraController_ = nullptr;
-
-	// デスパーティクル
 	DeathParticles* deathParticles_ = nullptr;
-
-	// ゴールの3Dモデル
 	KamataEngine::Model* goalModel_ = nullptr;
-	// ゴールオブジェクト
 	Goal* goal_ = nullptr;
-
 	bool isGoal_ = false;
 
-	// フェード
 	Fade* fade_ = nullptr;
-
-	// ゲームの現在フェーズ（変数）
 	Phase phase_ = {};
-
-	// 終了フラグ
 	bool finished_ = false;
 
-	// HUDの初期化
-	HUD *HUD_ = nullptr;
-
-	// HUDの初期化
+	HUD* HUD_ = nullptr;
 	UI* UI_ = nullptr;
 
 	uint32_t jHandle_;
 	KamataEngine::Sprite* jSprite_ = {};
-
 	uint32_t spaceHandle_;
 	KamataEngine::Sprite* spaceSprite_ = {};
 
-
-	// ポーズ制御フラグ（追加）
 	bool isPaused_ = false;
-	// 操作確認表示フラグ（追加）
 	bool showControls_ = false;
-
-	// --- ポーズメニュー選択用 ---
-	int pauseMenuIndex_ = 0; // 0: リスタート, 1: ステージセレクトに戻る
+	int pauseMenuIndex_ = 0;
 	static inline const int kPauseMenuCount = 2;
 
-	/// <summary>
-	/// 全ての当たり判定を行う
-	/// </summary>
+	// 現在のステージ番号
+	int currentStageNo_ = 1;
+	// ステージ開始時のタイマー
+	float stageStartTimer_ = 0.0f;
+
 	void CheckAllCollisions();
-
-	/// <summary>
-	/// フェーズの切り替え処理
-	/// </summary>
 	void ChangePhase();
-
-	/// <summary>
-	/// ゲームの状態をリセットする
-	/// </summary>
 	void Reset();
 
 public:
-	/*********************************************************
-	*メンバ関数
-	*********************************************************/
-
-	//初期化
-	void Initialize(int stageNo = 1); 
-
-	// 更新
+	void Initialize(int stageNo = 1);
 	void Update();
-
-	// 描画
 	void Draw();
-
-	/// <summary>
-	/// マップチップデータに合わせてブロックを生成する
-	/// </summary>
 	void GenerateBlocks();
-
-	// デストラクタ
 	~GameScene();
 
-	// 終了したかを取得する
 	bool GetIsFinished() const { return finished_; }
 	void SetIsFinished(bool finished) { finished_ = finished; }
-
 };

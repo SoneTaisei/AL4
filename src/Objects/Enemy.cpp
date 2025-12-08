@@ -112,7 +112,7 @@ void Enemy::MapCollisionRight(CollisionMapInfo& info) {
 		return;
 	}
 
-	// --- 2. 崖判定 (★追加) ---
+	// --- 2. 崖判定  ---
 	// 右下のさらに少し下を調べる
 	Vector3 rightFloorCheck = centerNew + Vector3{kWidth / 2.0f, -kHeight / 2.0f - 0.2f, 0.0f};
 	MapChipField::IndexSet indexSetFloor = mapChipField_->GetMapChipIndexSetByPosition(rightFloorCheck);
@@ -152,7 +152,7 @@ void Enemy::MapCollisionLeft(CollisionMapInfo& info) {
 		return;
 	}
 
-	// --- 2. 崖判定 (★追加) ---
+	// --- 2. 崖判定 ---
 	// 左下のさらに少し下を調べる
 	Vector3 leftFloorCheck = centerNew + Vector3{-kWidth / 2.0f, -kHeight / 2.0f - 0.2f, 0.0f};
 	MapChipField::IndexSet indexSetFloor = mapChipField_->GetMapChipIndexSetByPosition(leftFloorCheck);
