@@ -71,7 +71,7 @@ void ShooterEnemy::MapCollisionRight(Vector3& move) {
 		return; // 壁に当たったらここで終了
 	}
 
-	// --- 2. 崖判定 (★追加処理) ---
+	// --- 2. 崖判定 ---
 	// 「移動先の足元」をチェックする
 	// 右端(kWidth/2.0f) のさらに少し下(-checkHeight / 2.0f - 0.2f) を調べる
 	Vector3 rightFloorCheck = centerNew + Vector3{kWidth / 2.0f, -kHeight / 2.0f - 0.2f, 0.0f};
@@ -113,7 +113,7 @@ void ShooterEnemy::MapCollisionLeft(Vector3& move) {
 		return; // 壁に当たったらここで終了
 	}
 
-	// --- 2. 崖判定 (★追加処理) ---
+	// --- 2. 崖判定　---
 	// 「移動先の足元」をチェックする
 	// 左端(-kWidth/2.0f) のさらに少し下(-kHeight / 2.0f - 0.2f) を調べる
 	Vector3 leftFloorCheck = centerNew + Vector3{-kWidth / 2.0f, -kHeight / 2.0f - 0.2f, 0.0f};

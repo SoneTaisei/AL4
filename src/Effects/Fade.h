@@ -1,5 +1,5 @@
 #pragma once
-#include "KamataEngine.h" // スプライトを使うためにインクルード
+#include "KamataEngine.h"
 
 /// <summary>
 /// フェード
@@ -8,8 +8,8 @@ class Fade {
 public:
 	enum class Status {
 		None,    // フェードなし
-		FadeIn,  // フェードイン中
-		FadeOut, // フェードアウト中
+		FadeIn,  // フェードイン中（暗→明）
+		FadeOut, // フェードアウト中（明→暗）
 	};
 
 private:

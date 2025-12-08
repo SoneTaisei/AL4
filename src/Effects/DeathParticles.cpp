@@ -83,7 +83,7 @@ void DeathParticles::Update() {
 		// 座標に速度を加算して移動させる
 		worldTransforms_[i].translation_ += velocity;
 
-		// ★追加: 計算したスケールを適用する
+		// 計算したスケールを適用する
 		worldTransforms_[i].scale_ = {currentScale, currentScale, currentScale};
 	}
 

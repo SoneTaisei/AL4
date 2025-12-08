@@ -235,7 +235,6 @@ bool Player::MoveAndCollide(const KamataEngine::Vector3& move, const KamataEngin
 	return collided;
 }
 
-// Move関数の実装をここに追加
 void Player::UpdateVelocityByInput(const KamataEngine::Vector3& gravityVector) {
 
 	// 現在の重力方向から、プレイヤーにとっての「右」と「上」を計算する (これは新しい方式のまま)
@@ -542,7 +541,6 @@ void Player::MapCollisionRight(CollisionMapInfo& info) {
 
 		//// 壁にめり込まないように移動量を調整
 		// info.move.x = 0; // 元のコードに合わせて移動をキャンセル
-		//   ↓ 以下の行を追加
 		const float kCollisionBuffer = 0.001f;                                         // 衝突時のわずかな隙間
 		float targetPlayerCenterX = blockRect.left - kWidth / 2.0f - kCollisionBuffer; // ← バッファ分をさらに引く
 		info.move.x = targetPlayerCenterX - worldTransform_.translation_.x;
@@ -593,7 +591,6 @@ void Player::MapCollisionLeft(CollisionMapInfo& info) {
 
 		//// 壁にめり込まないように移動量を調整
 		// info.move.x = 0; // 元のコードに合わせて移動をキャンセル
-		//   ↓ 以下の行を追加
 		float targetPlayerCenterX = blockRect.right + kWidth / 2.0f;
 		info.move.x = targetPlayerCenterX - worldTransform_.translation_.x;
 	}

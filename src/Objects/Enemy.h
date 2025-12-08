@@ -2,7 +2,7 @@
 #include "KamataEngine.h"
 #include <numbers>
 #include "System/Collision.h"
-#include "System/MapChipField.h" // 追加
+#include "System/MapChipField.h"
 
 // 循環参照を避けるための前方宣言
 class Player;
@@ -63,7 +63,7 @@ private:
 	// マップチップによるフィールド
 	MapChipField* mapChipField_ = nullptr;
 
-	// 追加: 生成時のマップインデックスを保存
+	// 生成時のマップインデックスを保存
 	MapChipField::IndexSet spawnIndex_{UINT32_MAX, UINT32_MAX};
 
 	// 角
@@ -148,7 +148,7 @@ public:
 	/// </summary>
 	void SetMapChipField(MapChipField* mapChipField) { mapChipField_ = mapChipField; }
 	
-	// 追加: 生成時のマップインデックスをセット/取得
+	// 生成時のマップインデックスをセット/取得
 	void SetSpawnIndex(const MapChipField::IndexSet& idx) { spawnIndex_ = idx; }
 	MapChipField::IndexSet GetSpawnIndex() const { return spawnIndex_; }
 

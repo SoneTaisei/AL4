@@ -12,15 +12,13 @@ void Fade::Initialize() {
 	sprite_ = Sprite::Create(textureHandle_, {});
 
 	// 画面全体に表示されるようにサイズを設定
-	// ※ KamataEngineの仕様に合わせて画面サイズを取得してください。
-	// ここでは仮に1280x720とします。
 	sprite_->SetSize(Vector2{1280.0f, 720.0f});
 
 	// 色を黒（不透明）に設定
 	sprite_->SetColor({0.0f, 0.0f, 0.0f, 1.0f});
 }
 
-// 更新処理 (今回は特に処理なし)
+// 更新処理
 void Fade::Update() {
 	// 状態によって処理を分岐
 	switch (status_) {
@@ -86,10 +84,8 @@ void Fade::Start(Status status, float duration) {
 // フェード終了関数の実装
 void Fade::Stop() { status_ = Status::None; }
 
-// ★追加: フェード終了判定関数の実装
+// フェード終了判定関数の実装
 bool Fade::IsFinished() const {
-	// フェードインかフェードアウト中で、カウンターが持続時間を超えたらtrue
-	// 資料のコードをシンプルに実装しています
 	if ((status_ == Status::FadeIn || status_ == Status::FadeOut) && counter_ >= duration_) {
 		return true;
 	}

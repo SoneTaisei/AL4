@@ -2,7 +2,7 @@
 #include "KamataEngine.h"
 #include <numbers>
 #include "System/Collision.h"
-#include "System/MapChipField.h" // 追加
+#include "System/MapChipField.h"
 
 // 循環参照を避けるための前方宣言
 class Player;

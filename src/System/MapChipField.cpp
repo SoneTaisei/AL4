@@ -10,10 +10,10 @@ namespace {
 std::map<std::string, MapChipType> mapChipTable = {
     {"0", MapChipType::kBlank},
     {"1", MapChipType::kBlock},
-    {"2", MapChipType::kPlayerStart}, // 追加: CSVの"2"をプレイヤー出現ポイントにマップ
-    {"3", MapChipType::kEnemy},       // 追加: CSVの"3"を敵出現ポイントにマップ
-    {"4", MapChipType::kChasingEnemy}, // 追加: CSVの"4"を追尾する敵にマップ
-    {"5", MapChipType::kShooter},     // 追加: CSVの"5"を射撃する敵にマップ
+    {"2", MapChipType::kPlayerStart}, // CSVの"2"をプレイヤー出現ポイントにマップ
+    {"3", MapChipType::kEnemy},       // CSVの"3"を敵出現ポイントにマップ
+    {"4", MapChipType::kChasingEnemy}, // CSVの"4"を追尾する敵にマップ
+    {"5", MapChipType::kShooter},     // CSVの"5"を射撃する敵にマップ
 };
 }
 
@@ -101,7 +101,7 @@ MapChipField::IndexSet MapChipField::GetMapChipIndexSetByPosition(const KamataEn
 	// ワールド座標のYにブロック高さの半分を足して、ブロック高さで割る
 	// ここに微小な正の値を加算することで、わずかな浮き上がりを考慮し、誤って下のブロックのインデックスを取得するのを防ぐ
 	const float kEpsilon = 0.01f;                                                                                             // 例: 非常に小さい値
-	uint32_t revertedYIndex = static_cast<uint32_t>(std::floor((position.y + kBlockHeight / 2.0f + kEpsilon) / kBlockHeight)); // ★ kEpsilon を追加
+	uint32_t revertedYIndex = static_cast<uint32_t>(std::floor((position.y + kBlockHeight / 2.0f + kEpsilon) / kBlockHeight));
 
 	// 2. 正しいY番号に反転させる
 	indexSet.yIndex = kNumBlockVirtical - 1 - revertedYIndex;

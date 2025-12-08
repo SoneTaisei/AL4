@@ -20,9 +20,6 @@ TitleScene* titleScene = nullptr;
 StageSelectScene* stageSelectScene = nullptr;
 GameScene* gameScene = nullptr;
 
-// ==================================================
-// ★★★ 新しいグローバル関数を追加 ★★★
-// ==================================================
 
 void ForceChangeScene(Scene next) {
 	// 現在のシーンインスタンスをすべて安全に解放
@@ -70,7 +67,7 @@ void ChangeScene() {
 		}
 		break;
 
-	case Scene::kStageSelect: // ★ステージセレクトのケースを追加
+	case Scene::kStageSelect: // ★ステージセレクトのケース
 		if (stageSelectScene && stageSelectScene->GetIsFinished()) {
 			// 選択されたステージ番号を取得
 			int stageNo = stageSelectScene->GetSelectedStageNo();
@@ -105,7 +102,7 @@ void UpdateScene() {
 	case Scene::kTitle:
 		titleScene->Update();
 		break;
-	case Scene::kStageSelect: // ★追加
+	case Scene::kStageSelect: 
 		stageSelectScene->Update();
 		break;
 	case Scene::kGame:
@@ -120,7 +117,7 @@ void DrawScene() {
 	case Scene::kTitle:
 		titleScene->Draw();
 		break;
-	case Scene::kStageSelect: // ★追加
+	case Scene::kStageSelect:
 		stageSelectScene->Draw();
 		break;
 	case Scene::kGame:
