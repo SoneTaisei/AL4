@@ -10,6 +10,13 @@ void HUD::Initialize() {
 	for (int i = 0; i < 3; ++i) {
 		hpSprite_[i] = Sprite::Create(hpHandle_, {50, 50});
 		hpSprite_[i]->SetSize({50, 50});
+
+		// 同じ hpHandle_ (ハート画像) を使って別のスプライトを作る
+		hpBackSprite_[i] = Sprite::Create(hpHandle_, {50, 50});
+		hpBackSprite_[i]->SetSize({50, 50});
+
+		// 元の画像の色にこの色が乗算されるため、(0,0,0)を指定すると真っ黒になります
+		hpBackSprite_[i]->SetColor({0.0f, 0.0f, 0.0f, 1.0f});
 	}
 
 	// ★追加: 「STAGE 1-」画像の読み込み
@@ -37,13 +44,25 @@ void HUD::Update() {}
 void HUD::Draw(const Player* player) {
 	KamataEngine::DirectXCommon* dxCommon = KamataEngine::DirectXCommon::GetInstance();
 
-	for (int i = 0; i < player->GetHp(); ++i) {
-		Sprite::PreDraw(dxCommon->GetCommandList());
+	// 描画開始
+	Sprite::PreDraw(dxCommon->GetCommandList());
+
+	for (int i = 0; i < 3; ++i) {
 		hpSpritePosition_[i] = {50.0f + float(i) * 60.0f, 50.0f};
-		hpSprite_[i]->SetPosition({hpSpritePosition_[i]});
-		hpSprite_[i]->Draw();
-		Sprite::PostDraw();
+
+		// 1. まず「黒くしたハート」を常に描画（背景）
+		hpBackSprite_[i]->SetPosition(hpSpritePosition_[i]);
+		hpBackSprite_[i]->Draw();
+
+		// 2. 現在のHPがある場合だけ、上から「元のハート」を描画
+		if (i < player->GetHp()) {
+			hpSprite_[i]->SetPosition(hpSpritePosition_[i]);
+			hpSprite_[i]->Draw();
+		}
 	}
+
+	// 描画終了
+	Sprite::PostDraw();
 }
 
 void HUD::DrawStageNumber(int stageNo) {
