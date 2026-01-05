@@ -38,6 +38,7 @@ private:
 		kStageStart, // ステージ開始（暗転・番号表示）
 		kFadeIn,     // フェードイン
 		kPlay,       // ゲームプレイ
+		kGoalAnimation,
 		kDeath,      // デス演出
 		kDeathFadeOut,
 		kFadeOut, // フェードアウト
@@ -102,6 +103,9 @@ private:
 	int currentStageNo_ = 1;
 	// ステージ開始時のタイマー
 	float stageStartTimer_ = 0.0f;
+
+	// ゴール演出中のカメラ用タイマー
+	float goalCameraTimer_ = 0.0f;
 
 	void CheckAllCollisions();
 	void ChangePhase();

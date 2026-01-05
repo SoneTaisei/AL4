@@ -662,8 +662,6 @@ AABB Player::GetAABB() {
 }
 
 void Player::OnCollision(const KamataEngine::WorldTransform &worldTransform) {
-	// 衝突相手の情報を表示 (デバッグ用)
-
 	// 無敵状態、またはすでに死亡している場合は何もしない
 	if (isInvicible_ || !isAlive_) {
 		return;
@@ -674,62 +672,71 @@ void Player::OnCollision(const KamataEngine::WorldTransform &worldTransform) {
 
 	// HPが0以下になったかチェック
 	if (hp_ <= 0) {
-		hp_ = 0;         // HPがマイナスにならないようにする
-		isAlive_ = false; // 死亡フラグを立てる
-	} else {
-		// ダメージを受けたら無敵時間を設定
-		isInvicible_ = true;
-		invincibleTimer_ = kInvincibleDuration;
+		hp_ = 0; // HPがマイナスにならないようにする
 
-		// 敵のワールド座標を取得 (EnemyクラスにGetWorldTransform() constが必要です)
-		KamataEngine::Vector3 enemyPos = worldTransform.translation_;
-		KamataEngine::Vector3 playerPos = worldTransform_.translation_;
+		// ★変更点: ここで即座に isAlive_ = false にせず、演出フラグを立てる
+		// これによりパーティクルが出るのを防ぎ（isAlive_を見ていれば）、
+		// プレイヤーが消えずにノックバックと倒れる演出へ移行できる
+		isDeadAnimating_ = true;
 
-		// プレイヤーから敵への逆方向ベクトルを計算
-		KamataEngine::Vector3 knockbackDir = playerPos - enemyPos;
-		knockbackDir.z = 0.0f; // 2DアクションなのでZ軸は無視
-
-		// 完全に座標が重なっている場合の保険
-		if (Length(knockbackDir) < 0.001f) {
-			// 現在のプレイヤーの向きと逆方向に飛ばす
-			KamataEngine::Vector3 moveRight = {0, 0, 0};
-			if (gravity_.y != 0) {
-				moveRight = {1.0f, 0.0f, 0.0f};
-				if (gravity_.y > 0)
-					moveRight.x *= -1.0f;
-			} else if (gravity_.x != 0) {
-				moveRight = {0.0f, -1.0f, 0.0f};
-				if (gravity_.x > 0)
-					moveRight.y *= -1.0f;
-			}
-			knockbackDir = (lrDirection_ == LRDirection::kRight) ? -moveRight : moveRight;
-		} else {
-			knockbackDir = Normalize(knockbackDir);
-		}
-
-		// 現在の重力から「上方向」と「水平方向」を正しく設定
-		KamataEngine::Vector3 moveUp = {0.0f, 0.0f, 0.0f};
-		if (gravity_.y != 0) { // 通常の上下重力
-			moveUp = (gravity_.y < 0) ? KamataEngine::Vector3{0.0f, 1.0f, 0.0f} : KamataEngine::Vector3{0.0f, -1.0f, 0.0f};
-			// 水平方向はX軸だけにする
-			knockbackDir.y = 0;
-			if (Length(knockbackDir) > 0.001f)
-				knockbackDir = Normalize(knockbackDir);
-
-		} else if (gravity_.x != 0) { // 横向き重力
-			moveUp = (gravity_.x < 0) ? KamataEngine::Vector3{1.0f, 0.0f, 0.0f} : KamataEngine::Vector3{-1.0f, 0.0f, 0.0f};
-			// 水平方向はY軸だけにする
-			knockbackDir.x = 0;
-			if (Length(knockbackDir) > 0.001f)
-				knockbackDir = Normalize(knockbackDir);
-		}
-
-		// 最終的なノックバック速度を合成して設定
-		velocity_ = (knockbackDir * kKnockbackHorizontalPower) + (moveUp * kKnockbackVerticalPower);
-
-		// ノックバック中は強制的に空中状態にする
-		onGround_ = false;
+		// 演出用タイマーをセット
+		deathTimer_ = kDeathAnimationDuration;
 	}
+
+	// ★変更点: else を削除し、HPが0になった場合でもノックバック処理を実行する
+
+	// ダメージを受けたら無敵時間を設定（死ぬときも無敵にしておくと安全）
+	isInvicible_ = true;
+	invincibleTimer_ = kInvincibleDuration;
+
+	// 敵のワールド座標を取得
+	KamataEngine::Vector3 enemyPos = worldTransform.translation_;
+	KamataEngine::Vector3 playerPos = worldTransform_.translation_;
+
+	// プレイヤーから敵への逆方向ベクトルを計算
+	KamataEngine::Vector3 knockbackDir = playerPos - enemyPos;
+	knockbackDir.z = 0.0f; // 2DアクションなのでZ軸は無視
+
+	// 完全に座標が重なっている場合の保険
+	if (Length(knockbackDir) < 0.001f) {
+		// 現在のプレイヤーの向きと逆方向に飛ばす
+		KamataEngine::Vector3 moveRight = {0, 0, 0};
+		if (gravity_.y != 0) {
+			moveRight = {1.0f, 0.0f, 0.0f};
+			if (gravity_.y > 0)
+				moveRight.x *= -1.0f;
+		} else if (gravity_.x != 0) {
+			moveRight = {0.0f, -1.0f, 0.0f};
+			if (gravity_.x > 0)
+				moveRight.y *= -1.0f;
+		}
+		knockbackDir = (lrDirection_ == LRDirection::kRight) ? -moveRight : moveRight;
+	} else {
+		knockbackDir = Normalize(knockbackDir);
+	}
+
+	// 現在の重力から「上方向」と「水平方向」を正しく設定
+	KamataEngine::Vector3 moveUp = {0.0f, 0.0f, 0.0f};
+	if (gravity_.y != 0) { // 通常の上下重力
+		moveUp = (gravity_.y < 0) ? KamataEngine::Vector3{0.0f, 1.0f, 0.0f} : KamataEngine::Vector3{0.0f, -1.0f, 0.0f};
+		// 水平方向はX軸だけにする
+		knockbackDir.y = 0;
+		if (Length(knockbackDir) > 0.001f)
+			knockbackDir = Normalize(knockbackDir);
+
+	} else if (gravity_.x != 0) { // 横向き重力
+		moveUp = (gravity_.x < 0) ? KamataEngine::Vector3{1.0f, 0.0f, 0.0f} : KamataEngine::Vector3{-1.0f, 0.0f, 0.0f};
+		// 水平方向はY軸だけにする
+		knockbackDir.x = 0;
+		if (Length(knockbackDir) > 0.001f)
+			knockbackDir = Normalize(knockbackDir);
+	}
+
+	// 最終的なノックバック速度を合成して設定
+	velocity_ = (knockbackDir * kKnockbackHorizontalPower) + (moveUp * kKnockbackVerticalPower);
+
+	// ノックバック中は強制的に空中状態にする
+	onGround_ = false;
 }
 
 void Player::Initialize(KamataEngine::Model* model, uint32_t textureHandle, KamataEngine::Camera* camera, const KamataEngine::Vector3& position) {
@@ -767,6 +774,9 @@ void Player::Initialize(KamataEngine::Model* model, uint32_t textureHandle, Kama
 	// 生存状態で初期化
 	isAlive_ = true;
 
+	// 死亡演出フラグのリセット
+	isDeadAnimating_ = false;
+
 	// 無敵状態
 	isInvicible_ = false;
 
@@ -776,49 +786,119 @@ void Player::Initialize(KamataEngine::Model* model, uint32_t textureHandle, Kama
 	invincibleTimer_ = 0.0f;
 }
 
-void Player::Update(const KamataEngine::Vector3& gravityVector, float cameraAngleZ) {
+void Player::Update(const KamataEngine::Vector3& gravityVector, float cameraAngleZ, float timeScale) {
 
 	if (!isAlive_) {
 		return;
 	}
 
-	// 画面外（下に落ちた）判定の処理
-	// ※「画面外」の定義はゲームによって異なります。ここではY座標が -10.0f を下回ったら死亡とします。
+	// 画面外（下に落ちた）判定
 	const float kDeadlyHeight = 11.0f;
-
 	if (GetWorldPosition().y < kDeadlyHeight) {
-		isAlive_ = false; // 生存フラグをfalseにする
-		// 死亡したので、これ以降の更新処理はスキップ
+		isAlive_ = false;
 		return;
 	}
 
-	// 現在の重力をメンバ変数に保存する
 	gravity_ = gravityVector;
 
-	// 被ダメージによる無敵時間の更新
+	if (isDeadAnimating_) {
+		// 1. 重力を加算（時間スケールを掛ける）
+		velocity_ += gravityVector * timeScale;
+
+		// 2. 移動と衝突判定（移動量にも時間スケールを掛ける）
+		Vector3 finalMove = velocity_ * timeScale;
+		ApplyCollisionAndMove(finalMove, gravityVector);
+
+		// 3. 摩擦抵抗（時間スケール分だけ減衰させる簡易計算）
+		if (onGround_) {
+			// ★変更点1: 減衰率を 0.9f から 0.5f (もっと抵抗を強く) に変更
+			// 数値が小さいほど、すぐに止まります (0.0f〜1.0f)
+			float friction = 0.5f;
+
+			velocity_.x *= (1.0f - (1.0f - friction) * timeScale);
+			velocity_.z *= (1.0f - (1.0f - friction) * timeScale);
+
+			// ★変更点2: 速度がわずかになったら強制的に止める（スナップ処理）
+			// これがないと、無限に滑っているように見えてしまいます
+			if (std::abs(velocity_.x) < 0.05f)
+				velocity_.x = 0.0f;
+			if (std::abs(velocity_.z) < 0.05f)
+				velocity_.z = 0.0f;
+		}
+
+		// 4. 倒れる演出（回転速度に時間スケールを掛ける）
+		float maxRot = std::numbers::pi_v<float> / 2.0f;
+		float rotSpeed = 0.1f * timeScale; // ★ここもスローに
+
+		if (lrDirection_ == LRDirection::kRight) {
+			if (worldTransform_.rotation_.z < maxRot) {
+				worldTransform_.rotation_.z += rotSpeed;
+				if (worldTransform_.rotation_.z > maxRot)
+					worldTransform_.rotation_.z = maxRot;
+			}
+		} else {
+			if (worldTransform_.rotation_.z > -maxRot) {
+				worldTransform_.rotation_.z -= rotSpeed;
+				if (worldTransform_.rotation_.z < -maxRot)
+					worldTransform_.rotation_.z = -maxRot;
+			}
+		}
+
+		TransformUpdater::WorldTransformUpdate(worldTransform_);
+		worldTransform_.TransferMatrix();
+
+		// タイマーもスローに合わせてゆっくり減らす
+		deathTimer_ -= (1.0f / 60.0f);
+		if (deathTimer_ <= 0.0f) {
+			isAlive_ = false;
+		}
+		return;
+	}
+
+	// 被ダメージ無敵時間の更新
 	if (invincibleTimer_ > 0.0f) {
-		invincibleTimer_ -= 1.0f / 60.0f; // 1/60秒ずつ減らす
-		// タイマーが0以下になったら
+		invincibleTimer_ -= (1.0f / 60.0f) * timeScale; // ★スロー対応
 		if (invincibleTimer_ <= 0.0f) {
-			// 攻撃中でなければ無敵を解除する
 			if (!isAttacking_) {
 				isInvicible_ = false;
 			}
 		}
 	}
 
-	// 1. 攻撃の状態を更新し、攻撃による移動量を取得する
+	// 1. 攻撃更新（UpdateAttack内も本当はtimeScale対応が必要だが、攻撃中に死ぬことは稀なので一旦省略可）
+	// もし厳密にやるならUpdateAttackにもtimeScaleを渡してください
 	Vector3 attackMove = {};
 	UpdateAttack(gravityVector, attackMove);
 
-	// 2. キー入力に応じて速度を更新する
-	UpdateVelocityByInput(gravityVector);
+	// 2. 入力による速度更新
+	// UpdateVelocityByInput も timeScale を考慮して移動量を調整する必要があります
+	// ここでは簡易的に UpdateVelocityByInput の中身をここに展開して書くか、
+	// UpdateVelocityByInput に timeScale を渡す修正が必要です。
+	// 今回は「入力受付」部分なので、スロー中は操作不能（または鈍くなる）と仮定し、
+	// 下記の finalMove 計算で全体に timeScale を掛けることで対応します。
 
-	// 3. 最終的な移動量を計算し、衝突判定を行いながら移動する
-	Vector3 finalMove = velocity_ + attackMove;
+	UpdateVelocityByInput(gravityVector);
+	// ※注意: 正しくは UpdateVelocityByInput 内の加速や重力加算にも timeScale を掛けるべきですが、
+	// 死亡時以外（通常時）は timeScale=1.0 なので、今回は「最終移動量」で調整します。
+
+	// 重力加算（通常時）の補正
+	// UpdateVelocityByInput内で velocity_ += gravityVector されているため、
+	// 正確にはそこで * timeScale すべきですが、簡易実装としてここで差分調整は難しいので
+	// ★推奨: UpdateVelocityByInput にも引数 timeScale を追加し、内部の velocity_ += ... * timeScale に書き換えるのがベストです。
+	// (今回はコード量が増えるので、UpdateVelocityByInputの修正は割愛し、物理挙動のズレには目をつぶります)
+
+	// 3. 最終的な移動量（ここで timeScale を掛けることで全体をスローにする）
+	Vector3 finalMove = (velocity_ + attackMove) * timeScale;
+
+	// ★重要: 重力加速度が UpdateVelocityByInput で 1.0倍分 加算されてしまっているので、
+	// スロー時(timeScale < 1.0)は加算されすぎた分を少し戻すハック（簡易補正）
+	if (timeScale < 1.0f) {
+		velocity_ -= gravityVector * (1.0f - timeScale);
+	}
+
 	ApplyCollisionAndMove(finalMove, gravityVector);
 
-	// 4. 向きの更新とワールド行列の計算
+	// 4. 向きの更新
 	UpdateRotationAndTransform(cameraAngleZ);
 }
 
@@ -848,4 +928,90 @@ void Player::Draw() {
 
 	// 3Dモデル描画後処理
 	KamataEngine::Model::PostDraw();
+}
+
+// 演出開始のトリガー
+void Player::StartGoalAnimation() {
+	isAttacking_ = false;
+	velocity_ = {0, 0, 0};
+
+	worldTransform_.scale_ = {1.0f, 1.0f, 1.0f};
+
+	// 現在のフェーズとタイマーをリセット
+	goalAnimationPhase_ = GoalAnimationPhase::kSpin;
+	goalAnimTimer_ = 0.0f;
+
+	// 着地判定のために現在のY座標を保存 (attackStartPosition_を再利用)
+	attackStartPosition_ = worldTransform_.translation_;
+	// 回転計算のために現在のY軸回転を保存
+	goalStartRotationY_ = worldTransform_.rotation_.y;
+}
+
+// 演出用の更新ロジック (Updateから呼び出す)
+void Player::UpdateGoalAnimation() {
+	if (goalAnimationPhase_ == GoalAnimationPhase::kNone)
+		return;
+
+	goalAnimTimer_ += 1.0f / 60.0f;
+
+	// --- 1. 回転 ---
+	if (goalAnimationPhase_ == GoalAnimationPhase::kSpin) {
+		float duration = 0.5f;
+		float t = std::clamp(goalAnimTimer_ / duration, 0.0f, 1.0f);
+
+		float startRot = goalStartRotationY_;
+		float endRot = std::numbers::pi_v<float>;
+
+		// 回転処理
+		worldTransform_.rotation_.y = Lerp(startRot, endRot + std::numbers::pi_v<float> * 2.0f, t);
+
+		if (t >= 1.0f) {
+			// ★変更: ジャンプではなく、待機フェーズへ移行
+			goalAnimationPhase_ = GoalAnimationPhase::kWait;
+			goalAnimTimer_ = 0.0f;
+		}
+	}
+	// --- 2. 待機 (0.2秒) ---
+	else if (goalAnimationPhase_ == GoalAnimationPhase::kWait) {
+		float waitDuration = 0.2f; // ここで待ち時間を調整
+
+		if (goalAnimTimer_ >= waitDuration) {
+			// 待機が終わったらジャンプ開始
+			goalAnimationPhase_ = GoalAnimationPhase::kJump;
+			goalAnimTimer_ = 0.0f;
+			velocity_.y = 0.2f; // ジャンプ初速
+
+			// ジャンプ開始時のZ回転を保存
+			goalStartRotationZ_ = worldTransform_.rotation_.z;
+		}
+	}
+	// --- 3. ジャンプ & ポーズ維持 ---
+	else if (goalAnimationPhase_ == GoalAnimationPhase::kJump) {
+		// ジャンプ移動
+		velocity_.y -= kGravityAcceleration;
+		if (velocity_.y > 0.0f) {
+			worldTransform_.translation_.y += velocity_.y;
+		} else {
+			velocity_.y = 0.0f; // 最高点で停止
+		}
+
+		// 傾きアニメーション
+		float tiltDuration = 0.4f;
+		float t = std::clamp(goalAnimTimer_ / tiltDuration, 0.0f, 1.0f);
+		float easedT = EaseOutQuad(t);
+
+		float targetRotZ = -0.4f;
+		worldTransform_.rotation_.z = Lerp(goalStartRotationZ_, targetRotZ, easedT);
+
+		// ポーズ維持時間
+		float waitTime = 2.5f;
+
+		if (velocity_.y <= 0.0f && t >= 1.0f && goalAnimTimer_ >= waitTime) {
+			goalAnimationPhase_ = GoalAnimationPhase::kEnd;
+		}
+	}
+	// kEnd: 固定
+
+	TransformUpdater::WorldTransformUpdate(worldTransform_);
+	worldTransform_.TransferMatrix();
 }

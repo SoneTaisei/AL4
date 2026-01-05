@@ -4,6 +4,8 @@ float EaseOutQuint(float t) {
 	return f * f * f * f * f + 1.0f;
 }
 
+float EaseOutQuad(float t) { return 1.0f - (1.0f - t) * (1.0f - t); }
+
 float Lerp(float start, float end, float t) {
 	return start + (end - start) * t; 
 }

@@ -15,6 +15,16 @@ struct CollisionMapInfo {
 	KamataEngine::Vector3 move; // 移動量
 };
 
+// 演出の状態定義
+enum class GoalAnimationPhase {
+	kNone,
+	kSpin, // 一回転して正面を向く
+	kWait, // 回転後の待機時間
+	kJump, // ジャンプ
+	kPose, // ポーズをとるフェーズ
+	kEnd   // 演出終了
+};
+
 /// <summary>
 /// 自キャラ
 /// </summary>
@@ -115,6 +125,14 @@ private:
 	int hp_ = 0;
 	static inline const int kMaxHp = 3; // 最大HP
 
+	// 死亡演出中フラグ
+	bool isDeadAnimating_ = false;
+
+	// 死亡演出用タイマー
+	float deathTimer_ = 0.0f;
+	// 死亡演出の時間（秒）。この時間が経過するとGameScene側で死亡と判定される
+	static inline const float kDeathAnimationDuration = 2.0f;
+
 	// ダメージ量
 	static inline const int kDamageFromEnemy = 1;
 
@@ -122,6 +140,15 @@ private:
 	float invincibleTimer_ = 0.0f;
 	// 無敵時間 <秒>
 	static inline const float kInvincibleDuration = 2.0f;
+
+	// ゴール演出用
+	GoalAnimationPhase goalAnimationPhase_ = GoalAnimationPhase::kNone;
+	float goalAnimTimer_ = 0.0f;
+
+	float goalStartRotationY_ = 0.0f; // 演出開始時の角度を保存
+
+	// ポーズ開始時の角度保存用
+	float goalStartRotationZ_ = 0.0f;
 
 	// 角
 	enum Corner {
@@ -220,7 +247,7 @@ public:
 	/// <summary>
 	/// 更新
 	/// </summary>
-	void Update(const KamataEngine::Vector3& gravityVector, float cameraAngleZ);
+	void Update(const KamataEngine::Vector3& gravityVector, float cameraAngleZ, float timeScale = 1.0f);
 
 	/// <summary>
 	/// 描画
@@ -256,6 +283,21 @@ public:
 	void OnCollision(const KamataEngine::WorldTransform &worldTransform);
 
 	/// <summary>
+	/// ゴール演出開始
+	/// </summary>
+	void StartGoalAnimation();
+
+	/// <summary>
+	/// ゴール演出更新
+	/// </summary>
+	void UpdateGoalAnimation();
+
+	/// <summary>
+	/// ゴール演出の状態を取得
+	/// </summary>
+	GoalAnimationPhase GetGoalAnimationPhase() const { return goalAnimationPhase_; }
+
+	/// <summary>
 	/// HPを取得する
 	/// </summary>
 	int GetHp() const { return hp_; }
@@ -269,5 +311,8 @@ public:
 	bool GetIsAttacking() const { return isAttacking_; }
 
 	static float GetGravityAcceleration() { return kGravityAcceleration; }
+
+	// 死亡演出中かどうかを取得する（追加）
+	bool GetIsDeadAnimating() const { return isDeadAnimating_; }
 
 };
