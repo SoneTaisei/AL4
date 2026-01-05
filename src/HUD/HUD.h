@@ -16,6 +16,11 @@ private:
 	uint32_t hpHandle_;
 	KamataEngine::Sprite* hpSprite_[3] = {};
 	KamataEngine::Vector2 hpSpritePosition_[3] = {};
+	// 背景用（黒くする用）のスプライト配列
+	KamataEngine::Sprite* hpBackSprite_[3] = {};
+
+	// 各ハートの現在のスケール（0.0f ～ 1.0f）
+	float heartScales_[3] = {};
 
 	//「STAGE 1-」の文字用
 	uint32_t stageTextHandle_ = 0;
