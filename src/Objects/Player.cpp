@@ -662,8 +662,6 @@ AABB Player::GetAABB() {
 }
 
 void Player::OnCollision(const KamataEngine::WorldTransform &worldTransform) {
-	// 衝突相手の情報を表示 (デバッグ用)
-
 	// 無敵状態、またはすでに死亡している場合は何もしない
 	if (isInvicible_ || !isAlive_) {
 		return;
@@ -674,62 +672,71 @@ void Player::OnCollision(const KamataEngine::WorldTransform &worldTransform) {
 
 	// HPが0以下になったかチェック
 	if (hp_ <= 0) {
-		hp_ = 0;         // HPがマイナスにならないようにする
-		isAlive_ = false; // 死亡フラグを立てる
-	} else {
-		// ダメージを受けたら無敵時間を設定
-		isInvicible_ = true;
-		invincibleTimer_ = kInvincibleDuration;
+		hp_ = 0; // HPがマイナスにならないようにする
 
-		// 敵のワールド座標を取得 (EnemyクラスにGetWorldTransform() constが必要です)
-		KamataEngine::Vector3 enemyPos = worldTransform.translation_;
-		KamataEngine::Vector3 playerPos = worldTransform_.translation_;
+		// ★変更点: ここで即座に isAlive_ = false にせず、演出フラグを立てる
+		// これによりパーティクルが出るのを防ぎ（isAlive_を見ていれば）、
+		// プレイヤーが消えずにノックバックと倒れる演出へ移行できる
+		isDeadAnimating_ = true;
 
-		// プレイヤーから敵への逆方向ベクトルを計算
-		KamataEngine::Vector3 knockbackDir = playerPos - enemyPos;
-		knockbackDir.z = 0.0f; // 2DアクションなのでZ軸は無視
-
-		// 完全に座標が重なっている場合の保険
-		if (Length(knockbackDir) < 0.001f) {
-			// 現在のプレイヤーの向きと逆方向に飛ばす
-			KamataEngine::Vector3 moveRight = {0, 0, 0};
-			if (gravity_.y != 0) {
-				moveRight = {1.0f, 0.0f, 0.0f};
-				if (gravity_.y > 0)
-					moveRight.x *= -1.0f;
-			} else if (gravity_.x != 0) {
-				moveRight = {0.0f, -1.0f, 0.0f};
-				if (gravity_.x > 0)
-					moveRight.y *= -1.0f;
-			}
-			knockbackDir = (lrDirection_ == LRDirection::kRight) ? -moveRight : moveRight;
-		} else {
-			knockbackDir = Normalize(knockbackDir);
-		}
-
-		// 現在の重力から「上方向」と「水平方向」を正しく設定
-		KamataEngine::Vector3 moveUp = {0.0f, 0.0f, 0.0f};
-		if (gravity_.y != 0) { // 通常の上下重力
-			moveUp = (gravity_.y < 0) ? KamataEngine::Vector3{0.0f, 1.0f, 0.0f} : KamataEngine::Vector3{0.0f, -1.0f, 0.0f};
-			// 水平方向はX軸だけにする
-			knockbackDir.y = 0;
-			if (Length(knockbackDir) > 0.001f)
-				knockbackDir = Normalize(knockbackDir);
-
-		} else if (gravity_.x != 0) { // 横向き重力
-			moveUp = (gravity_.x < 0) ? KamataEngine::Vector3{1.0f, 0.0f, 0.0f} : KamataEngine::Vector3{-1.0f, 0.0f, 0.0f};
-			// 水平方向はY軸だけにする
-			knockbackDir.x = 0;
-			if (Length(knockbackDir) > 0.001f)
-				knockbackDir = Normalize(knockbackDir);
-		}
-
-		// 最終的なノックバック速度を合成して設定
-		velocity_ = (knockbackDir * kKnockbackHorizontalPower) + (moveUp * kKnockbackVerticalPower);
-
-		// ノックバック中は強制的に空中状態にする
-		onGround_ = false;
+		// 演出用タイマーをセット
+		deathTimer_ = kDeathAnimationDuration;
 	}
+
+	// ★変更点: else を削除し、HPが0になった場合でもノックバック処理を実行する
+
+	// ダメージを受けたら無敵時間を設定（死ぬときも無敵にしておくと安全）
+	isInvicible_ = true;
+	invincibleTimer_ = kInvincibleDuration;
+
+	// 敵のワールド座標を取得
+	KamataEngine::Vector3 enemyPos = worldTransform.translation_;
+	KamataEngine::Vector3 playerPos = worldTransform_.translation_;
+
+	// プレイヤーから敵への逆方向ベクトルを計算
+	KamataEngine::Vector3 knockbackDir = playerPos - enemyPos;
+	knockbackDir.z = 0.0f; // 2DアクションなのでZ軸は無視
+
+	// 完全に座標が重なっている場合の保険
+	if (Length(knockbackDir) < 0.001f) {
+		// 現在のプレイヤーの向きと逆方向に飛ばす
+		KamataEngine::Vector3 moveRight = {0, 0, 0};
+		if (gravity_.y != 0) {
+			moveRight = {1.0f, 0.0f, 0.0f};
+			if (gravity_.y > 0)
+				moveRight.x *= -1.0f;
+		} else if (gravity_.x != 0) {
+			moveRight = {0.0f, -1.0f, 0.0f};
+			if (gravity_.x > 0)
+				moveRight.y *= -1.0f;
+		}
+		knockbackDir = (lrDirection_ == LRDirection::kRight) ? -moveRight : moveRight;
+	} else {
+		knockbackDir = Normalize(knockbackDir);
+	}
+
+	// 現在の重力から「上方向」と「水平方向」を正しく設定
+	KamataEngine::Vector3 moveUp = {0.0f, 0.0f, 0.0f};
+	if (gravity_.y != 0) { // 通常の上下重力
+		moveUp = (gravity_.y < 0) ? KamataEngine::Vector3{0.0f, 1.0f, 0.0f} : KamataEngine::Vector3{0.0f, -1.0f, 0.0f};
+		// 水平方向はX軸だけにする
+		knockbackDir.y = 0;
+		if (Length(knockbackDir) > 0.001f)
+			knockbackDir = Normalize(knockbackDir);
+
+	} else if (gravity_.x != 0) { // 横向き重力
+		moveUp = (gravity_.x < 0) ? KamataEngine::Vector3{1.0f, 0.0f, 0.0f} : KamataEngine::Vector3{-1.0f, 0.0f, 0.0f};
+		// 水平方向はY軸だけにする
+		knockbackDir.x = 0;
+		if (Length(knockbackDir) > 0.001f)
+			knockbackDir = Normalize(knockbackDir);
+	}
+
+	// 最終的なノックバック速度を合成して設定
+	velocity_ = (knockbackDir * kKnockbackHorizontalPower) + (moveUp * kKnockbackVerticalPower);
+
+	// ノックバック中は強制的に空中状態にする
+	onGround_ = false;
 }
 
 void Player::Initialize(KamataEngine::Model* model, uint32_t textureHandle, KamataEngine::Camera* camera, const KamataEngine::Vector3& position) {
@@ -767,6 +774,9 @@ void Player::Initialize(KamataEngine::Model* model, uint32_t textureHandle, Kama
 	// 生存状態で初期化
 	isAlive_ = true;
 
+	// 死亡演出フラグのリセット
+	isDeadAnimating_ = false;
+
 	// 無敵状態
 	isInvicible_ = false;
 
@@ -794,6 +804,60 @@ void Player::Update(const KamataEngine::Vector3& gravityVector, float cameraAngl
 
 	// 現在の重力をメンバ変数に保存する
 	gravity_ = gravityVector;
+
+	// 死亡演出中の更新処理
+	if (isDeadAnimating_) {
+		// 1. 重力を加算（落下させる）
+		velocity_ += gravityVector;
+
+		// 2. 移動と衝突判定
+		Vector3 finalMove = velocity_;
+		ApplyCollisionAndMove(finalMove, gravityVector);
+
+		// 3. 摩擦抵抗（地面についたら滑りを抑える）
+		if (onGround_) {
+			velocity_.x *= 0.9f;
+			velocity_.z *= 0.9f;
+		}
+
+		// 4. 倒れる演出（あおむけに倒れる）
+		// 90度（π/2）まで回転して止める設定
+		float maxRot = std::numbers::pi_v<float> / 2.0f; // 90度
+		float rotSpeed = 0.1f;                           // 倒れる速さ
+
+		if (lrDirection_ == LRDirection::kRight) {
+			// 右向きのときは、左（背中側）へ倒れる（Z軸プラス回転）
+			if (worldTransform_.rotation_.z < maxRot) {
+				worldTransform_.rotation_.z += rotSpeed;
+				// 行き過ぎたら90度で止める
+				if (worldTransform_.rotation_.z > maxRot) {
+					worldTransform_.rotation_.z = maxRot;
+				}
+			}
+		} else {
+			// 左向きのときは、右（背中側）へ倒れる（Z軸マイナス回転）
+			if (worldTransform_.rotation_.z > -maxRot) {
+				worldTransform_.rotation_.z -= rotSpeed;
+				// 行き過ぎたら-90度で止める
+				if (worldTransform_.rotation_.z < -maxRot) {
+					worldTransform_.rotation_.z = -maxRot;
+				}
+			}
+		}
+
+		// 行列の更新
+		TransformUpdater::WorldTransformUpdate(worldTransform_);
+		worldTransform_.TransferMatrix();
+
+		// タイマー制御（演出が終わったら死亡状態へ）
+		deathTimer_ -= 1.0f / 60.0f;
+		if (deathTimer_ <= 0.0f) {
+			isAlive_ = false;
+		}
+
+		// 通常の更新処理は行わずにリターン
+		return;
+	}
 
 	// 被ダメージによる無敵時間の更新
 	if (invincibleTimer_ > 0.0f) {

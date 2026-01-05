@@ -125,6 +125,14 @@ private:
 	int hp_ = 0;
 	static inline const int kMaxHp = 3; // 最大HP
 
+	// 死亡演出中フラグ
+	bool isDeadAnimating_ = false;
+
+	// ★追加: 死亡演出用タイマー
+	float deathTimer_ = 0.0f;
+	// ★追加: 死亡演出の時間（秒）。この時間が経過するとGameScene側で死亡と判定される
+	static inline const float kDeathAnimationDuration = 2.0f;
+
 	// ダメージ量
 	static inline const int kDamageFromEnemy = 1;
 
@@ -303,5 +311,8 @@ public:
 	bool GetIsAttacking() const { return isAttacking_; }
 
 	static float GetGravityAcceleration() { return kGravityAcceleration; }
+
+	// 死亡演出中かどうかを取得する（追加）
+	bool GetIsDeadAnimating() const { return isDeadAnimating_; }
 
 };
