@@ -16,6 +16,8 @@
 #include <Windows.h>
 #include <cstdio>
 #include <imgui.h>
+#include "Utils/Easing.h"
+#include <algorithm>
 
 using namespace KamataEngine;
 
@@ -95,6 +97,9 @@ void GameScene::Reset() {
 	// ★リセット後はまず「ステージ開始」フェーズへ
 	phase_ = Phase::kFadeIn;
 	stageStartTimer_ = 0.0f;
+
+	// カメラの距離を初期値に戻す (-30.0f は CameraController.h の初期値) ▼▼▼
+	cameraController_->targetOffset = {0, 0, -30.0f};
 
 	// FadeInで初期化するが、Updateは呼ばず「不透明(真っ黒)」のままキープする
 	fade_->Start(Fade::Status::FadeIn, 1.0f);
@@ -213,6 +218,7 @@ void GameScene::Initialize(int stageNo) {
 	cameraController_->Initialize(&camera_);
 	cameraController_->SetTarget(player_);
 	cameraController_->Reset();
+	cameraController_->targetOffset = {0, 0, -30.0f};
 
 	Rect cameraMovableArea;
 	cameraMovableArea.left = 0.0f;
@@ -365,6 +371,37 @@ void GameScene::Update() {
 		ChangePhase();
 		break;
 	}
+	case Phase::kGoalAnimation:
+		// プレイヤーの演出更新（重力などは演出内で制御）
+		player_->UpdateGoalAnimation();
+		// カメラを滑らかに近づける処理 (線形補間)
+		{
+			goalCameraTimer_ += 1.0f / 60.0f;
+
+			// 0.5秒かけて近づく
+			float duration = 0.5f;
+			float t = std::clamp(goalCameraTimer_ / duration, 0.0f, 1.0f);
+
+			// Z軸のオフセットを変化させる
+			// -30.0f (通常) → -10.0f (アップ)
+			float startZ = -30.0f;
+			float endZ = -10.0f;
+
+			// Lerpで補間 (t をそのまま使うと線形補間になります)
+			cameraController_->targetOffset.z = Lerp(startZ, endZ, t);
+
+			// 必要に応じて高さ(Y)も調整したい場合はここに追加
+			// cameraController_->targetOffset.y = Lerp(0.0f, 2.0f, t);
+		}
+		// カメラはプレイヤーを追い続ける
+		cameraController_->Update();
+
+		// プレイヤーの演出が終わったらフェードアウトへ
+		if (player_->GetGoalAnimationPhase() == GoalAnimationPhase::kEnd) {
+			phase_ = Phase::kFadeOut;
+			fade_->Start(Fade::Status::FadeOut, 1.0f);
+		}
+		break;
 	case Phase::kDeath:
 		deathParticles_->Update();
 		if (deathParticles_ && deathParticles_->IsFinished()) {
@@ -599,8 +636,10 @@ void GameScene::CheckAllCollisions() {
 
 	if (IsColliding(aabb1, aabb2)) {
 		if (phase_ == Phase::kPlay) {
-			phase_ = Phase::kFadeOut;
-			fade_->Start(Fade::Status::FadeOut, 1.0f);
+			phase_ = Phase::kGoalAnimation;
+			player_->StartGoalAnimation();
+			// カメラ演出用タイマーのリセット
+			goalCameraTimer_ = 0.0f;
 		}
 	}
 }

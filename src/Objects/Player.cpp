@@ -849,3 +849,89 @@ void Player::Draw() {
 	// 3Dモデル描画後処理
 	KamataEngine::Model::PostDraw();
 }
+
+// 演出開始のトリガー
+void Player::StartGoalAnimation() {
+	isAttacking_ = false;
+	velocity_ = {0, 0, 0};
+
+	worldTransform_.scale_ = {1.0f, 1.0f, 1.0f};
+
+	// 現在のフェーズとタイマーをリセット
+	goalAnimationPhase_ = GoalAnimationPhase::kSpin;
+	goalAnimTimer_ = 0.0f;
+
+	// 着地判定のために現在のY座標を保存 (attackStartPosition_を再利用)
+	attackStartPosition_ = worldTransform_.translation_;
+	// 回転計算のために現在のY軸回転を保存
+	goalStartRotationY_ = worldTransform_.rotation_.y;
+}
+
+// 演出用の更新ロジック (Updateから呼び出す)
+void Player::UpdateGoalAnimation() {
+	if (goalAnimationPhase_ == GoalAnimationPhase::kNone)
+		return;
+
+	goalAnimTimer_ += 1.0f / 60.0f;
+
+	// --- 1. 回転 ---
+	if (goalAnimationPhase_ == GoalAnimationPhase::kSpin) {
+		float duration = 0.5f;
+		float t = std::clamp(goalAnimTimer_ / duration, 0.0f, 1.0f);
+
+		float startRot = goalStartRotationY_;
+		float endRot = std::numbers::pi_v<float>;
+
+		// 回転処理
+		worldTransform_.rotation_.y = Lerp(startRot, endRot + std::numbers::pi_v<float> * 2.0f, t);
+
+		if (t >= 1.0f) {
+			// ★変更: ジャンプではなく、待機フェーズへ移行
+			goalAnimationPhase_ = GoalAnimationPhase::kWait;
+			goalAnimTimer_ = 0.0f;
+		}
+	}
+	// --- 2. 待機 (0.2秒) ---
+	else if (goalAnimationPhase_ == GoalAnimationPhase::kWait) {
+		float waitDuration = 0.2f; // ここで待ち時間を調整
+
+		if (goalAnimTimer_ >= waitDuration) {
+			// 待機が終わったらジャンプ開始
+			goalAnimationPhase_ = GoalAnimationPhase::kJump;
+			goalAnimTimer_ = 0.0f;
+			velocity_.y = 0.2f; // ジャンプ初速
+
+			// ジャンプ開始時のZ回転を保存
+			goalStartRotationZ_ = worldTransform_.rotation_.z;
+		}
+	}
+	// --- 3. ジャンプ & ポーズ維持 ---
+	else if (goalAnimationPhase_ == GoalAnimationPhase::kJump) {
+		// ジャンプ移動
+		velocity_.y -= kGravityAcceleration;
+		if (velocity_.y > 0.0f) {
+			worldTransform_.translation_.y += velocity_.y;
+		} else {
+			velocity_.y = 0.0f; // 最高点で停止
+		}
+
+		// 傾きアニメーション
+		float tiltDuration = 0.4f;
+		float t = std::clamp(goalAnimTimer_ / tiltDuration, 0.0f, 1.0f);
+		float easedT = EaseOutQuad(t);
+
+		float targetRotZ = -0.4f;
+		worldTransform_.rotation_.z = Lerp(goalStartRotationZ_, targetRotZ, easedT);
+
+		// ポーズ維持時間
+		float waitTime = 2.5f;
+
+		if (velocity_.y <= 0.0f && t >= 1.0f && goalAnimTimer_ >= waitTime) {
+			goalAnimationPhase_ = GoalAnimationPhase::kEnd;
+		}
+	}
+	// kEnd: 固定
+
+	TransformUpdater::WorldTransformUpdate(worldTransform_);
+	worldTransform_.TransferMatrix();
+}

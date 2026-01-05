@@ -15,6 +15,16 @@ struct CollisionMapInfo {
 	KamataEngine::Vector3 move; // 移動量
 };
 
+// 演出の状態定義
+enum class GoalAnimationPhase {
+	kNone,
+	kSpin, // 一回転して正面を向く
+	kWait, // 回転後の待機時間
+	kJump, // ジャンプ
+	kPose, // ポーズをとるフェーズ
+	kEnd   // 演出終了
+};
+
 /// <summary>
 /// 自キャラ
 /// </summary>
@@ -122,6 +132,15 @@ private:
 	float invincibleTimer_ = 0.0f;
 	// 無敵時間 <秒>
 	static inline const float kInvincibleDuration = 2.0f;
+
+	// ゴール演出用
+	GoalAnimationPhase goalAnimationPhase_ = GoalAnimationPhase::kNone;
+	float goalAnimTimer_ = 0.0f;
+
+	float goalStartRotationY_ = 0.0f; // 演出開始時の角度を保存
+
+	// ポーズ開始時の角度保存用
+	float goalStartRotationZ_ = 0.0f;
 
 	// 角
 	enum Corner {
@@ -254,6 +273,21 @@ public:
 	/// </summary>
 	/// <param name="enemy">衝突相手の敵</param>
 	void OnCollision(const KamataEngine::WorldTransform &worldTransform);
+
+	/// <summary>
+	/// ゴール演出開始
+	/// </summary>
+	void StartGoalAnimation();
+
+	/// <summary>
+	/// ゴール演出更新
+	/// </summary>
+	void UpdateGoalAnimation();
+
+	/// <summary>
+	/// ゴール演出の状態を取得
+	/// </summary>
+	GoalAnimationPhase GetGoalAnimationPhase() const { return goalAnimationPhase_; }
 
 	/// <summary>
 	/// HPを取得する
