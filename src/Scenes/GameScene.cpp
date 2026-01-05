@@ -313,7 +313,15 @@ void GameScene::Update() {
 		}
 
 		Vector3 gravityVector = {0.0f, -Player::GetGravityAcceleration(), 0.0f};
-		player_->Update(gravityVector, cameraTargetAngleZ_);
+
+		// タイムスケールの計算
+		float timeScale = 1.0f; // 通常は1倍速
+		if (player_->GetIsDeadAnimating()) {
+			timeScale = 0.2f; // 死亡演出中は0.2倍速（スローモーション）
+		}
+
+		// ★変更: timeScale を渡す
+		player_->Update(gravityVector, cameraTargetAngleZ_, timeScale);
 
 		goal_->Update();
 

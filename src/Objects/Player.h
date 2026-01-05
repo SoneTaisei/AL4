@@ -128,9 +128,9 @@ private:
 	// 死亡演出中フラグ
 	bool isDeadAnimating_ = false;
 
-	// ★追加: 死亡演出用タイマー
+	// 死亡演出用タイマー
 	float deathTimer_ = 0.0f;
-	// ★追加: 死亡演出の時間（秒）。この時間が経過するとGameScene側で死亡と判定される
+	// 死亡演出の時間（秒）。この時間が経過するとGameScene側で死亡と判定される
 	static inline const float kDeathAnimationDuration = 2.0f;
 
 	// ダメージ量
@@ -247,7 +247,7 @@ public:
 	/// <summary>
 	/// 更新
 	/// </summary>
-	void Update(const KamataEngine::Vector3& gravityVector, float cameraAngleZ);
+	void Update(const KamataEngine::Vector3& gravityVector, float cameraAngleZ, float timeScale = 1.0f);
 
 	/// <summary>
 	/// 描画
