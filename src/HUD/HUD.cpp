@@ -17,6 +17,9 @@ void HUD::Initialize() {
 
 		// 元の画像の色にこの色が乗算されるため、(0,0,0)を指定すると真っ黒になります
 		hpBackSprite_[i]->SetColor({0.0f, 0.0f, 0.0f, 1.0f});
+
+		// 最初は大きさ 1.0 (最大) にしておく
+		heartScales_[i] = 1.0f;
 	}
 
 	// ★追加: 「STAGE 1-」画像の読み込み
@@ -44,24 +47,48 @@ void HUD::Update() {}
 void HUD::Draw(const Player* player) {
 	KamataEngine::DirectXCommon* dxCommon = KamataEngine::DirectXCommon::GetInstance();
 
-	// 描画開始
 	Sprite::PreDraw(dxCommon->GetCommandList());
 
 	for (int i = 0; i < 3; ++i) {
 		hpSpritePosition_[i] = {50.0f + float(i) * 60.0f, 50.0f};
 
-		// 1. まず「黒くしたハート」を常に描画（背景）
+		// --- 1. アニメーション計算 ---
+		// このハートがあるべき目標の大きさ（HPが残っていれば1.0、なければ0.0）
+		float targetScale = (i < player->GetHp()) ? 1.0f : 0.0f;
+
+		// 変化のスピード (値が小さいほどゆっくり消える)
+		float speed = 0.05f;
+
+		// 現在の大きさを目標に近づける
+		if (heartScales_[i] < targetScale) {
+			heartScales_[i] = std::fminf(heartScales_[i] + speed, targetScale); // 回復時：大きくする
+		} else {
+			heartScales_[i] = std::fmaxf(heartScales_[i] - speed, targetScale); // ダメージ時：小さくする
+		}
+
+		// --- 2. 背景（黒いハート）を描画 ---
+		// 背景はずっとサイズ固定
+		hpBackSprite_[i]->SetSize({50.0f, 50.0f});
 		hpBackSprite_[i]->SetPosition(hpSpritePosition_[i]);
 		hpBackSprite_[i]->Draw();
 
-		// 2. 現在のHPがある場合だけ、上から「元のハート」を描画
-		if (i < player->GetHp()) {
-			hpSprite_[i]->SetPosition(hpSpritePosition_[i]);
+		// --- 3. 赤いハートを描画 ---
+		// 大きさが0より大きいときだけ描画する
+		if (heartScales_[i] > 0.0f) {
+			// 現在のスケールに基づいてサイズを計算
+			float currentSize = 50.0f * heartScales_[i];
+
+			// ★重要: 小さくなるときに「中心に向かって」縮むように位置を調整
+			// (元のサイズ50 - 今のサイズ) / 2 だけ右下にずらす
+			float offset = (50.0f - currentSize) / 2.0f;
+			Vector2 drawPos = {hpSpritePosition_[i].x + offset, hpSpritePosition_[i].y + offset};
+
+			hpSprite_[i]->SetSize({currentSize, currentSize});
+			hpSprite_[i]->SetPosition(drawPos);
 			hpSprite_[i]->Draw();
 		}
 	}
 
-	// 描画終了
 	Sprite::PostDraw();
 }
 
