@@ -32,7 +32,7 @@ bool IsColliding(const AABB& aabb1, const AABB& aabb2) {
 }
 
 void GameScene::Reset() {
-	// プレイヤーの初期化
+	// --- 1. プレイヤーの再配置と初期化 ---
 	Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 9); // フォールバック
 
 	MapChipField::IndexSet startIdx;
@@ -40,22 +40,22 @@ void GameScene::Reset() {
 		playerPosition = mapChipField_->GetMapChipPositionByIndex(startIdx.xIndex, startIdx.yIndex);
 	}
 
+	// プレイヤーの状態をリセット（Initialize済みのインスタンスを再設定）
 	player_->Initialize(playerModel_, playerTextureHandle_, &camera_, playerPosition);
 	player_->SetMapChipField(mapChipField_);
 
-	// 敵の初期化
+	// --- 2. 敵の全削除と再生成 ---
+	// 既存の敵を削除
 	for (Enemy* enemy : enemies_) {
 		delete enemy;
 	}
 	enemies_.clear();
 
-	// 追尾する敵の初期化
 	for (ChasingEnemy* enemy : chasingEnemies_) {
 		delete enemy;
 	}
 	chasingEnemies_.clear();
 
-	// 射撃する敵の初期化
 	for (ShooterEnemy* enemy : shooterEnemies_) {
 		delete enemy;
 	}
@@ -89,68 +89,10 @@ void GameScene::Reset() {
 		}
 	}
 
-	// カメラコントローラーのリセット
-	cameraController_->SetTarget(player_);
-	cameraController_->Reset();
-	cameraTargetAngleZ_ = 0.0f;
-
-	// ★リセット後はまず「ステージ開始」フェーズへ
-	phase_ = Phase::kFadeIn;
-	stageStartTimer_ = 0.0f;
-
-	// カメラの距離を初期値に戻す (-30.0f は CameraController.h の初期値) ▼▼▼
-	cameraController_->targetOffset = {0, 0, -30.0f};
-
-	// FadeInで初期化するが、Updateは呼ばず「不透明(真っ黒)」のままキープする
-	fade_->Start(Fade::Status::FadeIn, 1.0f);
-}
-
-void GameScene::Initialize(int stageNo) {
-	// ★ステージ番号を保存
-	currentStageNo_ = stageNo;
-
-	// テクスチャの読み込み
-	uvCheckerTextureHandle_ = TextureManager::Load("uvChecker.png");
-	playerTextureHandle_ = TextureManager::Load("AL3_Player/Player.png");
-	enemyTextureHandle_ = TextureManager::Load("AL3_Enemy/Enemy.png");
-	chasingEnemyTextureHandle_ = TextureManager::Load("AL3_ChasingEnemy/ChasingEnemy.png");
-	shooterEnemyTextureHandle_ = TextureManager::Load("AL3_ShooterEnemy/ShooterEnemy.png");
-	skysphereTextureHandle = TextureManager::Load("skydome/AL_skysphere.png");
-	particleTextureHandle = TextureManager::Load("AL3_Particle/AL3_Particle.png");
-	projectileTextureHandle_ = TextureManager::Load("ball/ball.png");
-
-	// 3Dモデルの生成
-	cubeModel_ = Model::CreateFromOBJ("debugCube");
-	modelSkydome_ = Model::CreateFromOBJ("skydome", true);
-	playerModel_ = Model::CreateFromOBJ("AL3_Player", true);
-	enemyModel_ = Model::CreateFromOBJ("AL3_Enemy", true);
-	chasingEnemyModel_ = Model::CreateFromOBJ("AL3_ChasingEnemy", true);
-	shooterEnemyModel_ = Model::CreateFromOBJ("AL3_ShooterEnemy", true);
-	particleModel_ = Model::CreateFromOBJ("AL3_Particle", true);
-	goalModel_ = Model::CreateFromOBJ("goal", true);
-	projectileModel_ = Model::CreateFromOBJ("ball", true);
-
-	// 座標変換の初期化
-	worldTransform_.Initialize();
-	// カメラの初期化
-	camera_.Initialize();
-	// デバッグカメラの生成
-	debugCamera_ = new DebugCamera(1280, 720);
-
-	// マップチップフィールドの生成
-	mapChipField_ = new MapChipField();
-	std::string mapFileName = "Resources/stage/stage" + std::to_string(stageNo) + ".csv";
-	mapChipField_->LoadMapChipCsv(mapFileName);
-
-	// ゴールとプレイヤーの座標設定
-	Vector3 goalPosition = mapChipField_->GetMapChipPositionByIndex(49, 3);
-	Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 9);
-	MapChipField::IndexSet startIdx;
-	if (mapChipField_->FindFirstIndexByType(MapChipType::kPlayerStart, startIdx)) {
-		playerPosition = mapChipField_->GetMapChipPositionByIndex(startIdx.xIndex, startIdx.yIndex);
-	}
-	// ステージごとの調整（互換性のため）
-	switch (stageNo) {
+	// --- 3. カメラとゴールのリセット ---
+	// ゴール位置の再取得と設定（ステージによって変わる場合への対応）
+	Vector3 goalPosition;
+	switch (currentStageNo_) {
 	case 1:
 		goalPosition = mapChipField_->GetMapChipPositionByIndex(49, 3);
 		break;
@@ -162,63 +104,81 @@ void GameScene::Initialize(int stageNo) {
 		goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
 		break;
 	}
-
-	// 自キャラの生成と初期化
-	player_ = new Player();
-	player_->Initialize(playerModel_, playerTextureHandle_, &camera_, playerPosition);
-
-	// デスパーティクルの生成と初期化
-	deathParticles_ = new DeathParticles();
-	deathParticles_->Initialize(particleModel_, particleTextureHandle, &camera_, playerPosition);
-
-	// 敵をマップチップから生成
-	for (uint32_t y = 0; y < mapChipField_->GetNumBlockVirtical(); ++y) {
-		for (uint32_t x = 0; x < mapChipField_->GetNumBlockHorizontal(); ++x) {
-			MapChipType t = mapChipField_->GetMapChipTypeByIndex(x, y);
-			if (t == MapChipType::kEnemy) {
-				Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(x, y);
-				Enemy* newEnemy = new Enemy();
-				newEnemy->Initialize(enemyModel_, enemyTextureHandle_, &camera_, enemyPosition);
-				newEnemy->SetMapChipField(mapChipField_);
-				newEnemy->SetSpawnIndex(mapChipField_->GetMapChipIndexSetByPosition(enemyPosition));
-				enemies_.push_back(newEnemy);
-			} else if (t == MapChipType::kChasingEnemy) {
-				Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(x, y);
-				ChasingEnemy* newEnemy = new ChasingEnemy();
-				newEnemy->Initialize(chasingEnemyModel_, chasingEnemyTextureHandle_, &camera_, enemyPosition);
-				newEnemy->SetTargetPlayer(player_);
-				chasingEnemies_.push_back(newEnemy);
-			} else if (t == MapChipType::kShooter) {
-				Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(x, y);
-				ShooterEnemy* newEnemy = new ShooterEnemy();
-				newEnemy->Initialize(shooterEnemyModel_, projectileModel_, shooterEnemyTextureHandle_, projectileTextureHandle_, &camera_, enemyPosition);
-				newEnemy->SetMapChipField(mapChipField_);
-				newEnemy->SetPlayer(player_);
-				shooterEnemies_.push_back(newEnemy);
-			}
-		}
+	// ゴールインスタンスがあれば再初期化（位置のみ更新）
+	if (goal_) {
+		goal_->Initialize(goalModel_, goalPosition);
 	}
 
-	// ブロック生成
+	// カメラコントローラーのリセット
+	cameraController_->SetTarget(player_);
+	cameraController_->Reset();
+	cameraTargetAngleZ_ = 0.0f;
+	cameraController_->targetOffset = {0, 0, -30.0f}; // カメラ距離の初期化
+
+	// --- 4. フェーズと演出のリセット ---
+	// デフォルトではリトライ用のフェードイン
+	phase_ = Phase::kFadeIn;
+	stageStartTimer_ = 0.0f;
+
+	// FadeIn開始状態（真っ黒）にする
+	fade_->Start(Fade::Status::FadeIn, 1.0f);
+}
+
+void GameScene::Initialize(int stageNo) {
+	// ★ステージ番号を保存
+	currentStageNo_ = stageNo;
+
+	// --- 1. リソースのロード ---
+	uvCheckerTextureHandle_ = TextureManager::Load("uvChecker.png");
+	playerTextureHandle_ = TextureManager::Load("AL3_Player/Player.png");
+	enemyTextureHandle_ = TextureManager::Load("AL3_Enemy/Enemy.png");
+	chasingEnemyTextureHandle_ = TextureManager::Load("AL3_ChasingEnemy/ChasingEnemy.png");
+	shooterEnemyTextureHandle_ = TextureManager::Load("AL3_ShooterEnemy/ShooterEnemy.png");
+	skysphereTextureHandle = TextureManager::Load("skydome/AL_skysphere.png");
+	particleTextureHandle = TextureManager::Load("AL3_Particle/AL3_Particle.png");
+	projectileTextureHandle_ = TextureManager::Load("ball/ball.png");
+
+	cubeModel_ = Model::CreateFromOBJ("debugCube");
+	modelSkydome_ = Model::CreateFromOBJ("skydome", true);
+	playerModel_ = Model::CreateFromOBJ("AL3_Player", true);
+	enemyModel_ = Model::CreateFromOBJ("AL3_Enemy", true);
+	chasingEnemyModel_ = Model::CreateFromOBJ("AL3_ChasingEnemy", true);
+	shooterEnemyModel_ = Model::CreateFromOBJ("AL3_ShooterEnemy", true);
+	particleModel_ = Model::CreateFromOBJ("AL3_Particle", true);
+	goalModel_ = Model::CreateFromOBJ("goal", true);
+	projectileModel_ = Model::CreateFromOBJ("ball", true);
+
+	jHandle_ = TextureManager::GetInstance()->Load("HUD/J.png");
+	spaceHandle_ = TextureManager::GetInstance()->Load("HUD/space.png");
+
+	// --- 2. 座標変換・カメラの基本初期化 ---
+	worldTransform_.Initialize();
+	camera_.Initialize();
+	debugCamera_ = new DebugCamera(1280, 720);
+
+	// --- 3. マップの生成 ---
+	mapChipField_ = new MapChipField();
+	std::string mapFileName = "Resources/stage/stage" + std::to_string(stageNo) + ".csv";
+	mapChipField_->LoadMapChipCsv(mapFileName);
+
+	// --- 4. オブジェクトのインスタンス生成 (配置はResetで行う) ---
+	player_ = new Player(); // 中身はResetで初期化される
+
+	deathParticles_ = new DeathParticles();
+	deathParticles_->Initialize(particleModel_, particleTextureHandle, &camera_, {0, 0, 0});
+
+	goal_ = new Goal(); // 中身はResetで初期化される
+
+	// ブロック生成 (マップ依存なのでここで生成)
 	GenerateBlocks();
 
-	// 天球の生成と初期化
+	// 天球
 	skydome_ = new Skydome();
 	skydome_->Initialize(modelSkydome_, skysphereTextureHandle, &camera_);
 
-	// プレイヤーにマップチップフィールドをセット
-	player_->SetMapChipField(mapChipField_);
-
-	// ゴールの生成と初期化
-	goal_ = new Goal();
-	goal_->Initialize(goalModel_, goalPosition);
-
-	// カメラコントローラーの生成と初期化
+	// カメラコントローラー
 	cameraController_ = new CameraController();
 	cameraController_->Initialize(&camera_);
-	cameraController_->SetTarget(player_);
-	cameraController_->Reset();
-	cameraController_->targetOffset = {0, 0, -30.0f};
 
 	Rect cameraMovableArea;
 	cameraMovableArea.left = 0.0f;
@@ -227,35 +187,36 @@ void GameScene::Initialize(int stageNo) {
 	cameraMovableArea.top = 100.0f;
 	cameraController_->SetMovableArea(cameraMovableArea);
 
-	// フェードの生成と初期化
+	// フェード
 	fade_ = new Fade();
 	fade_->Initialize();
 
-	// ★ステージ開始フェーズからスタート
-	phase_ = Phase::kStageStart;
-	stageStartTimer_ = 0.0f;
-
-	// FadeIn開始状態（不透明度1.0 = 真っ黒）にする
-	fade_->Start(Fade::Status::FadeIn, 1.0f);
-
-	finished_ = false;
-
+	// UI・HUD
 	UI_ = new UI;
 	UI_->Initialize();
 
 	HUD_ = new HUD;
 	HUD_->Initialize();
 
-	jHandle_ = TextureManager::GetInstance()->Load("HUD/J.png");
 	jSprite_ = Sprite::Create(jHandle_, {64, 600});
 	if (jSprite_) {
 		jSprite_->SetSize({64, 64});
 	}
-	spaceHandle_ = TextureManager::GetInstance()->Load("HUD/space.png");
 	spaceSprite_ = Sprite::Create(spaceHandle_, {192, 600});
 	if (spaceSprite_) {
 		spaceSprite_->SetSize({224, 64});
 	}
+
+	finished_ = false;
+
+	// --- 5. 共通初期化処理の呼び出し ---
+	// 敵の生成、プレイヤー・カメラの配置リセットなどを実行
+	Reset();
+
+	// --- 6. Initialize特有の上書き設定 ---
+	// Resetではリトライ用に FadeIn になるが、
+	// ステージ開始時は「ステージ番号表示演出」を行いたいので上書きする
+	phase_ = Phase::kStageStart;
 }
 
 void GameScene::Update() {
