@@ -66,8 +66,11 @@ void ShooterEnemy::MapCollisionRight(Vector3& move) {
 		lrDirection_ = LRDirection::kLeft;
 		move.x = 0.0f;
 
-		turnFirstRotationY_ = worldTransform_.rotation_.y;
-		turnTimer_ = 0.0f;
+		if (turnTimer_ >= 1.0f) {
+			lrDirection_ = LRDirection::kLeft;
+			turnFirstRotationY_ = worldTransform_.rotation_.y;
+			turnTimer_ = 0.0f;
+		}
 		return; // 壁に当たったらここで終了
 	}
 
@@ -82,8 +85,11 @@ void ShooterEnemy::MapCollisionRight(Vector3& move) {
 		lrDirection_ = LRDirection::kLeft;
 		move.x = 0.0f;
 
-		turnFirstRotationY_ = worldTransform_.rotation_.y;
-		turnTimer_ = 0.0f;
+		if (turnTimer_ >= 1.0f) {
+			lrDirection_ = LRDirection::kLeft;
+			turnFirstRotationY_ = worldTransform_.rotation_.y;
+			turnTimer_ = 0.0f;
+		}
 	}
 }
 
@@ -108,8 +114,11 @@ void ShooterEnemy::MapCollisionLeft(Vector3& move) {
 		lrDirection_ = LRDirection::kRight;
 		move.x = 0.0f;
 
-		turnFirstRotationY_ = worldTransform_.rotation_.y;
-		turnTimer_ = 0.0f;
+		if (turnTimer_ >= 1.0f) {
+			lrDirection_ = LRDirection::kLeft;
+			turnFirstRotationY_ = worldTransform_.rotation_.y;
+			turnTimer_ = 0.0f;
+		}
 		return; // 壁に当たったらここで終了
 	}
 
@@ -124,8 +133,11 @@ void ShooterEnemy::MapCollisionLeft(Vector3& move) {
 		lrDirection_ = LRDirection::kRight;
 		move.x = 0.0f;
 
-		turnFirstRotationY_ = worldTransform_.rotation_.y;
-		turnTimer_ = 0.0f;
+		if (turnTimer_ >= 1.0f) {
+			lrDirection_ = LRDirection::kLeft;
+			turnFirstRotationY_ = worldTransform_.rotation_.y;
+			turnTimer_ = 0.0f;
+		}
 	}
 }
 

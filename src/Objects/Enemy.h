@@ -35,7 +35,7 @@ private:
 	// 旋回タイマー
 	float turnTimer_ = 0.0f;
 	// 旋回時間<秒>
-	static inline const float kTimeTurn = 0.2f; 
+	static inline const float kTimeTurn = 0.5f; 
 
 	// ワールド変換データ
 	KamataEngine::WorldTransform worldTransform_;

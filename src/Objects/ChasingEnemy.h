@@ -19,7 +19,7 @@ private:
 	// 旋回
 	float turnFirstRotationY_ = 0.0f;
 	float turnTimer_ = 0.0f;
-	static inline const float kTimeTurn = 0.2f;
+	static inline const float kTimeTurn = 0.5f;
 
 	// ワールド情報
 	KamataEngine::WorldTransform worldTransform_;

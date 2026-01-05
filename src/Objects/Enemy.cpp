@@ -261,7 +261,7 @@ void Enemy::Update() {
 		// 現在の向きと逆の向きを新しい向きとする
 		LRDirection newDirection = (lrDirection_ == LRDirection::kLeft) ? LRDirection::kRight : LRDirection::kLeft;
 		// 向きが実際に変わる場合のみ、旋回アニメーションを開始する
-		if (lrDirection_ != newDirection) {
+		if (lrDirection_ != newDirection && turnTimer_ >= 1.0f) {
 			lrDirection_ = newDirection;
 			// 旋回アニメーションの準備
 			turnFirstRotationY_ = worldTransform_.rotation_.y;

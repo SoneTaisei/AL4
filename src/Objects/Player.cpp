@@ -941,6 +941,9 @@ void Player::StartGoalAnimation() {
 	goalAnimationPhase_ = GoalAnimationPhase::kSpin;
 	goalAnimTimer_ = 0.0f;
 
+	isInvicible_ = false;
+	invincibleTimer_ = 0.0f;
+
 	// 着地判定のために現在のY座標を保存 (attackStartPosition_を再利用)
 	attackStartPosition_ = worldTransform_.translation_;
 	// 回転計算のために現在のY軸回転を保存

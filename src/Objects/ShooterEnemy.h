@@ -54,7 +54,7 @@ private:
 	// 旋回タイマー
 	float turnTimer_ = 0.0f;
 	// 旋回時間<秒> (Enemyに合わせて設定)
-	static inline const float kTimeTurn = 0.2f;
+	static inline const float kTimeTurn = 0.5f;
 
 	// --- 死亡演出用定数と変数 ---
 	float deathTimer_ = 0.0f;
