@@ -71,7 +71,7 @@ void ChasingEnemy::Update() {
 			// 追尾速度と向きを設定
 			desiredX = (dx > 0.0f) ? kChaseSpeed : -kChaseSpeed;
 			LRDirection nd = (dx > 0.0f) ? LRDirection::kRight : LRDirection::kLeft;
-			if (nd != lrDirection_) {
+			if (nd != lrDirection_ && turnTimer_ >= 1.0f) {
 				lrDirection_ = nd;
 				turnFirstRotationY_ = worldTransform_.rotation_.y;
 				turnTimer_ = 0.0f;
