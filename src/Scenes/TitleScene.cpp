@@ -1,140 +1,227 @@
-#include "Scenes/TitleScene.h"
+// ★必ずincludeより前に書く
+#define _USE_MATH_DEFINES
 
-#include "Utils/TransformUpdater.h"
+#include "Scenes/TitleScene.h"
 #include "Effects/Skydome.h"
+#include "Utils/TransformUpdater.h"
+#include <cmath>
+// std::minなどは使わず math.h の関数を使うため include は最小限
 
 using namespace KamataEngine;
 
 // デストラクタの実装
 TitleScene::~TitleScene() {
-	// 各インスタンスを解放
 	delete modelTitle_;
 	delete modelPlayer_;
+	delete modelEnemy_;
 	delete fade_;
 	delete skydome_;
 }
 
 // 初期化処理
 void TitleScene::Initialize() {
-	// 3Dモデルを読み込む
-	// 前回作成したファイル名 "GoodGame.obj" を拡張子なしで指定
 	modelTitle_ = KamataEngine::Model::CreateFromOBJ("TitleName2");
 	modelPlayer_ = KamataEngine::Model::CreateFromOBJ("AL3_Player");
+	modelEnemy_ = KamataEngine::Model::CreateFromOBJ("AL3_Enemy");
 	skydomeModel_ = KamataEngine::Model::CreateFromOBJ("skydome", true);
 
 	skydomeTextureHandle_ = TextureManager::Load("skydome/AL_skysphere.png");
 
-	// --- タイトル文字のTransform初期化 ---
 	worldTransformTitle_.Initialize();
 	worldTransformTitle_.translation_ = {0.0f, 5.5f, 0.0f};
 	worldTransformTitle_.scale_ = {2.0f, 2.0f, 2.0f};
 	worldTransformTitle_.rotation_ = {0.0f, 0.0f, 0.0f};
 
-	// --- プレイヤーのTransform初期化 ---
 	worldTransformPlayer_.Initialize();
-	worldTransformPlayer_.translation_ = {0.0f, 0.0f, 0.0f}; // タイトルの下に表示
+	worldTransformPlayer_.translation_ = {0.0f, 20.0f, 0.0f};
 	worldTransformPlayer_.scale_ = {2.0f, 2.0f, 2.0f};
-	worldTransformPlayer_.rotation_ = {0.0f, -2.5f, 0.0f};
+	worldTransformPlayer_.rotation_ = {0.0f, static_cast<float>(M_PI), 0.0f};
 
-	// --- カメラの初期化 ---
+	// --- 敵のTransform初期化（4体分） ---
+	for (int i = 0; i < 4; ++i) {
+		worldTransformEnemies_[i].Initialize();
+		worldTransformEnemies_[i].scale_ = {0.0f, 0.0f, 0.0f}; // 最初は非表示
+		worldTransformEnemies_[i].rotation_ = worldTransformPlayer_.rotation_;
+	}
+
+	playerVelocityY_ = 0.0f;
+	isLanding_ = false;
+	bounceTimer_ = 0.0f;
+	enemyTimer_ = 0.0f;
+
 	camera_.Initialize();
 	camera_.translation_ = {0.0f, 2.0f, -15.0f};
 
 	skydome_ = new Skydome();
 	skydome_->Initialize(skydomeModel_, skydomeTextureHandle_, &camera_);
 
-	// フェードの生成と初期化
 	fade_ = new Fade();
 	fade_->Initialize();
 
-	// 色変更オブジェクトの初期化
 	objectColorTitle_.Initialize();
-	// 色の初期値を設定 (RGBA = {1, 1, 1, 1})
 	colorTitle_ = {0.14f, 1.0f, 0.6f, 1.0f};
 
-	// フェーズを初期化し、フェードインを開始
 	phase_ = Phase::kFadeIn;
-	fade_->Start(Fade::Status::FadeIn, 1.0f); // 1秒でフェードイン
+	fade_->Start(Fade::Status::FadeIn, 1.0f);
 
-	// 終了フラグを初期化
 	finished_ = false;
 }
 
 // 更新処理
 void TitleScene::Update() {
-	// フェーズごとの処理
 	switch (phase_) {
 	case Phase::kFadeIn:
-		// フェードイン処理
 		fade_->Update();
-		// フェードインが終わったらメインフェーズへ
 		if (fade_->IsFinished()) {
 			phase_ = Phase::kMain;
 		}
 		break;
 
 	case Phase::kMain:
-		// メイン処理 (タイトルロゴの上下アニメーション)
-		// アニメーション用カウンタを進める
-		animationTimer_ += 1.0f / 60.0f; // 1秒間に1/60ずつ増加 (フレームレートを想定)
+		// --- 1. タイトル文字のアニメーション ---
+		animationTimer_ += 1.0f / 60.0f;
+		worldTransformTitle_.translation_.y = initialTitleY_ + std::sin(animationTimer_ * 5.0f) * 0.5f + 5.5f;
 
-		// サインカーブを使ってY座標を更新 (振幅: 0.5f, 周期を調整)
-		worldTransformTitle_.translation_.y = initialTitleY_ + std::sin(animationTimer_ * 5.0f) * 0.5f+5.5f;
+		// --- 2. プレイヤーの落下・バウンド処理 ---
+		if (!isLanding_) {
+			playerVelocityY_ -= 0.05f;
+			worldTransformPlayer_.translation_.y += playerVelocityY_;
 
-		// スペースキーが押されたらフェードアウトを開始
+			if (worldTransformPlayer_.translation_.y <= 0.0f) {
+				worldTransformPlayer_.translation_.y = 0.0f;
+				playerVelocityY_ = 0.0f;
+				isLanding_ = true;
+				bounceTimer_ = 0.0f;
+			}
+		} else {
+			if (bounceTimer_ < 1.0f) {
+				bounceTimer_ += 1.0f / 60.0f;
+				float decay = (1.0f - bounceTimer_);
+				float wave = std::sin(bounceTimer_ * 25.0f);
+				float scaleDiff = wave * decay * 0.8f;
+
+				worldTransformPlayer_.scale_.y = 2.0f - scaleDiff;
+				worldTransformPlayer_.scale_.x = 2.0f + scaleDiff;
+				worldTransformPlayer_.scale_.z = 2.0f + scaleDiff;
+			} else {
+				worldTransformPlayer_.scale_ = {2.0f, 2.0f, 2.0f};
+				if (enemyTimer_ < 1.0f) {
+					enemyTimer_ += 1.0f / 60.0f;
+				}
+			}
+		}
+
+		// --- 3. 敵の位置更新（4体） ---
+		if (bounceTimer_ >= 1.0f) {
+
+			float t = fminf(enemyTimer_, 1.0f);
+			float easeT = 1.0f - std::pow(1.0f - t, 3.0f);
+
+			KamataEngine::Vector3 playerPos = worldTransformPlayer_.translation_;
+			float startDistance = 20.0f; // 画面外から来るための追加距離
+
+			// ★変更点1：きれいな四角形ではなく、少しバラバラな座標を直接定義
+			// 配列の並び：[左下気味, 右下気味, 左上気味, 右上気味] だがズレている
+
+			float dirX[4] = {-8.0f, 5.0f, -4.0f, 9.0f};  // 左右も非対称
+			float dirY[4] = {1.0f, 2.5f, 11.0f, 7.5f};   // 高さもバラバラ
+			float dirZ[4] = {12.0f, 9.0f, 11.0f, 14.0f}; // 奥行きも少しズラす
+
+			for (int i = 0; i < 4; ++i) {
+				worldTransformEnemies_[i].scale_ = {2.0f, 2.0f, 2.0f};
+
+				// 基本の目標位置
+				KamataEngine::Vector3 targetPos = playerPos;
+				targetPos.x += dirX[i];
+				targetPos.y += dirY[i];
+				targetPos.z += dirZ[i];
+
+				// ★変更点2：サイン波による浮遊アニメーションを追加
+				// animationTimer_ を使って、時間経過で上下させる
+				// (float)i を足すことで、4体がタイミングをずらして動く
+				float cycle = 2.0f;     // 速さ
+				float amplitude = 0.5f; // 揺れ幅
+				float hoverY = std::sin(animationTimer_ * cycle + (float)i) * amplitude;
+
+				// 目標位置に浮遊分を足す
+				targetPos.y += hoverY;
+
+				// 開始位置（上空斜めから降ってくる）
+				KamataEngine::Vector3 startPos = targetPos;
+				// ※ targetPos自体が揺れているので、startPosも影響を受けるが、
+				// 降りてくる演出としては違和感ないのでこのまま計算
+				startPos.x += (dirX[i] > 0 ? startDistance : -startDistance);
+				startPos.y += startDistance;
+
+				// イージング移動
+				worldTransformEnemies_[i].translation_.x = startPos.x + (targetPos.x - startPos.x) * easeT;
+				worldTransformEnemies_[i].translation_.y = startPos.y + (targetPos.y - startPos.y) * easeT;
+				worldTransformEnemies_[i].translation_.z = startPos.z + (targetPos.z - startPos.z) * easeT;
+
+				// プレイヤーの方を向く回転計算
+				float dx = playerPos.x - worldTransformEnemies_[i].translation_.x;
+				float dy = playerPos.y - worldTransformEnemies_[i].translation_.y;
+				float dz = playerPos.z - worldTransformEnemies_[i].translation_.z;
+
+				worldTransformEnemies_[i].rotation_.y = std::atan2(dx, dz);
+
+				float horizontalDist = std::sqrt(dx * dx + dz * dz);
+				worldTransformEnemies_[i].rotation_.x = std::atan2(-dy, horizontalDist);
+			}
+
+		} else {
+			// バウンド中は非表示
+			for (int i = 0; i < 4; ++i) {
+				worldTransformEnemies_[i].scale_ = {0.0f, 0.0f, 0.0f};
+			}
+		}
+
 		if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
-			fade_->Start(Fade::Status::FadeOut, 1.0f); // 1秒でフェードアウト
+			fade_->Start(Fade::Status::FadeOut, 1.0f);
 			phase_ = Phase::kFadeOut;
 		}
 		break;
 
 	case Phase::kFadeOut:
-		// フェードアウト処理
 		fade_->Update();
-		// フェードアウトが終わったらシーンを終了
 		if (fade_->IsFinished()) {
 			finished_ = true;
 		}
 		break;
 	}
 
-	// --- 全てのTransformのワールド行列を更新 ---
 	TransformUpdater::WorldTransformUpdate(worldTransformTitle_);
 	TransformUpdater::WorldTransformUpdate(worldTransformPlayer_);
 
-	// 天球の更新
+	// 4体分の更新
+	for (int i = 0; i < 4; ++i) {
+		TransformUpdater::WorldTransformUpdate(worldTransformEnemies_[i]);
+	}
+
 	skydome_->Update();
-
-	// カメラの行列を更新
 	camera_.UpdateMatrix();
-
 	objectColorTitle_.SetColor(colorTitle_);
 }
 
 // 描画処理
 void TitleScene::Draw() {
-	// KamataEngineの描画コマンドを使うためにDirectXCommonを取得
 	KamataEngine::DirectXCommon* dxCommon = KamataEngine::DirectXCommon::GetInstance();
 
-	// 描画前処理
 	KamataEngine::Model::PreDraw(dxCommon->GetCommandList());
-
-	// 天球の描画
 	skydome_->Draw();
-
-	// 描画後処理
 	KamataEngine::Model::PostDraw();
 
-	// 描画前処理
 	KamataEngine::Model::PreDraw(dxCommon->GetCommandList());
 
-	// --- モデルごとに、対応するTransformを使って描画 ---
-	modelTitle_->Draw(worldTransformTitle_, camera_,&objectColorTitle_);
+	modelTitle_->Draw(worldTransformTitle_, camera_, &objectColorTitle_);
 	modelPlayer_->Draw(worldTransformPlayer_, camera_);
 
-	// 描画後処理
+	// 敵の描画（4体分）
+	for (int i = 0; i < 4; ++i) {
+		modelEnemy_->Draw(worldTransformEnemies_[i], camera_);
+	}
+
 	KamataEngine::Model::PostDraw();
 
-	// フェードの描画 (必ず一番最後に描画する)
 	fade_->Draw();
 }
