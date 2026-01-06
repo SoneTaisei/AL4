@@ -164,7 +164,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 			break;
 		}
 
-		// 追加: 毎フレームゲームパッド状態を更新（これがないとコントローラ入力が反映されない）
+		// Gamepad の状態更新（毎フレーム最初に呼ぶ）
 		Gamepad::GetInstance()->Update();
 
 		imguiManager->Begin();

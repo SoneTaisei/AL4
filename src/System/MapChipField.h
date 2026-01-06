@@ -11,6 +11,7 @@ enum class MapChipType {
 	kEnemy, // 敵出現ポイント (CSVの"3")
 	kChasingEnemy, // 追尾する敵 (CSVの"4")
 	kShooter, // 射撃する敵 (CSVの"5")
+	kGoal, // ゴール (CSVの"6")
 };
 
 struct MapChipData {

@@ -189,6 +189,7 @@
     <ClInclude Include="src\System\CameraController.h" />
     <ClInclude Include="src\System\Collision.h" />
     <ClInclude Include="src\Effects\DeathParticles.h" />
+    <ClInclude Include="src\System\Gamepad.h" />
     <ClInclude Include="src\Utils\Easing.h" />
     <ClInclude Include="src\Objects\Enemy.h" />
     <ClInclude Include="src\Effects\Fade.h" />
@@ -208,12 +209,14 @@
     <ClInclude Include="src\System\GameTime.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="cpp src\main.cpp" />
     <ClCompile Include="src\Objects\ChasingEnemy.cpp" />
     <ClCompile Include="src\HUD\HUD.cpp" />
     <ClCompile Include="src\Objects\Projectile.cpp" />
     <ClCompile Include="src\Objects\ShooterEnemy.cpp" />
     <ClCompile Include="src\System\CameraController.cpp" />
     <ClCompile Include="src\Effects\DeathParticles.cpp" />
+    <ClCompile Include="src\System\Gamepad.cpp" />
     <ClCompile Include="src\Utils\Easing.cpp" />
     <ClCompile Include="src\Objects\Enemy.cpp" />
     <ClCompile Include="src\Effects\Fade.cpp" />

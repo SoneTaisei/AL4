@@ -1,6 +1,7 @@
 #include "Objects/Player.h"
 #include "Objects/Enemy.h"
 #include "System/MapChipField.h"
+#include "System/Gamepad.h"
 #include "Utils/Easing.h"
 #include "Utils/TransformUpdater.h"
 #include <algorithm>
@@ -76,7 +77,9 @@ void Player::UpdateAttack(const KamataEngine::Vector3& gravityVector, KamataEngi
 			isInvicible_ = false;
 		}
 
-		if (Input::GetInstance()->TriggerKey(DIK_J)) {
+		// キーボードJまたはゲームパッドXで攻撃
+		bool gpAttack = Gamepad::GetInstance()->IsTriggered(XINPUT_GAMEPAD_X);
+		if (Input::GetInstance()->TriggerKey(DIK_J) || gpAttack) {
 			Attack(gravityVector);
 		}
 	}
@@ -259,9 +262,13 @@ void Player::UpdateVelocityByInput(const KamataEngine::Vector3& gravityVector) {
 
 	// --- 左右移動 ---
 	Vector3 acceleration = {};
-	if (!isAttacking_ && (Input::GetInstance()->PushKey(DIK_D) || Input::GetInstance()->PushKey(DIK_A))) {
+	// ゲームパッドの左右入力（DPad か 左スティック）
+	bool gpRight = Gamepad::GetInstance()->IsPressed(XINPUT_GAMEPAD_DPAD_RIGHT) || Gamepad::GetInstance()->GetLeftThumbXf() > 0.3f;
+	bool gpLeft = Gamepad::GetInstance()->IsPressed(XINPUT_GAMEPAD_DPAD_LEFT) || Gamepad::GetInstance()->GetLeftThumbXf() < -0.3f;
 
-		if (Input::GetInstance()->PushKey(DIK_D)) {
+	if (!isAttacking_ && (Input::GetInstance()->PushKey(DIK_D) || Input::GetInstance()->PushKey(DIK_A) || gpRight || gpLeft)) {
+
+		if (Input::GetInstance()->PushKey(DIK_D) || gpRight) {
 			acceleration = moveRight * kAcceleration;
 			// 逆入力でのブレーキ
 			float dot = velocity_.x * moveRight.x + velocity_.y * moveRight.y;
@@ -273,9 +280,9 @@ void Player::UpdateVelocityByInput(const KamataEngine::Vector3& gravityVector) {
 			if (lrDirection_ != LRDirection::kRight) {
 				lrDirection_ = LRDirection::kRight;
 				turnFirstRotationY_ = worldTransform_.rotation_.y;
-				turnTimer_ = kTimeTurn; // Player.hでkTimeTurnを0.0fから0.2fなどにすると向き転換がスムーズになります
+				turnTimer_ = kTimeTurn;
 			}
-		} else if (Input::GetInstance()->PushKey(DIK_A)) {
+		} else if (Input::GetInstance()->PushKey(DIK_A) || gpLeft) {
 			acceleration = moveRight * -kAcceleration;
 			// 逆入力でのブレーキ
 			float dot = velocity_.x * moveRight.x + velocity_.y * moveRight.y;
@@ -320,7 +327,9 @@ void Player::UpdateVelocityByInput(const KamataEngine::Vector3& gravityVector) {
 	}
 	// --- ジャンプと重力 ---
 	if (!isAttacking_ && jumpCount < kMaxJumpCount) {
-		if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
+		// キーボード SPACE または ゲームパッド A でジャンプ
+		bool gpJump = Gamepad::GetInstance()->IsTriggered(XINPUT_GAMEPAD_A);
+		if (Input::GetInstance()->TriggerKey(DIK_SPACE) || gpJump) {
 			velocity_.y = 0.0f;
 			velocity_ += moveUp * kJumpAcceleration;
 			onGround_ = false;
@@ -601,10 +610,15 @@ void Player::MapCollision(CollisionMapInfo& info) {
 	// 各方向の衝突判定関数を呼び出す
 	MapCollisionUp(info);
 	MapCollisionDown(info);
-	if (Input::GetInstance()->PushKey(DIK_RIGHT)) {
+
+	// マップ側の左右判定に使う「移動入力」状態を取得（キーボード or ゲームパッド）
+	bool rightInput = Input::GetInstance()->PushKey(DIK_RIGHT) || Gamepad::GetInstance()->IsPressed(XINPUT_GAMEPAD_DPAD_RIGHT) || Gamepad::GetInstance()->GetLeftThumbXf() > 0.3f;
+	bool leftInput = Input::GetInstance()->PushKey(DIK_LEFT) || Gamepad::GetInstance()->IsPressed(XINPUT_GAMEPAD_DPAD_LEFT) || Gamepad::GetInstance()->GetLeftThumbXf() < -0.3f;
+
+	if (rightInput) {
 		MapCollisionRight(info);
 	}
-	if (Input::GetInstance()->PushKey(DIK_LEFT)) {
+	if (leftInput) {
 		MapCollisionLeft(info);
 	}
 }

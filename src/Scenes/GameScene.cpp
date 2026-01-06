@@ -17,6 +17,7 @@
 #include <cstdio>
 #include <imgui.h>
 #include "Utils/Easing.h"
+#include "System/Gamepad.h"
 #include <algorithm>
 
 using namespace KamataEngine;
@@ -90,20 +91,54 @@ void GameScene::Reset() {
 	}
 
 	// --- 3. カメラとゴールのリセット ---
-	// ゴール位置の再取得と設定（ステージによって変わる場合への対応）
+	// ゴール位置の再取得と設定（マップチップにゴールがあればそれを優先）
 	Vector3 goalPosition;
-	switch (currentStageNo_) {
-	case 1:
-		goalPosition = mapChipField_->GetMapChipPositionByIndex(49, 3);
-		break;
-	case 2:
-	case 3:
-		goalPosition = mapChipField_->GetMapChipPositionByIndex(37, 10);
-		break;
-	default:
-		goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
-		break;
+
+	// 全マップを走査して kGoal を探し、見つかった中で「最も右側(x 最大)」を採用する
+	bool foundGoal = false;
+	MapChipField::IndexSet bestGoalIdx = {0, 0};
+	for (uint32_t y = 0; y < mapChipField_->GetNumBlockVirtical(); ++y) {
+		for (uint32_t x = 0; x < mapChipField_->GetNumBlockHorizontal(); ++x) {
+			if (mapChipField_->GetMapChipTypeByIndex(x, y) == MapChipType::kGoal) {
+				if (!foundGoal || x > bestGoalIdx.xIndex || (x == bestGoalIdx.xIndex && y > bestGoalIdx.yIndex)) {
+					bestGoalIdx.xIndex = x;
+					bestGoalIdx.yIndex = y;
+					foundGoal = true;
+				}
+			}
+		}
 	}
+
+	if (foundGoal) {
+		goalPosition = mapChipField_->GetMapChipPositionByIndex(bestGoalIdx.xIndex, bestGoalIdx.yIndex);
+		// デバッグ出力
+		{
+			std::string msg = "Map goal found at index x=" + std::to_string(bestGoalIdx.xIndex) + ", y=" + std::to_string(bestGoalIdx.yIndex) + "\n";
+			OutputDebugStringA(msg.c_str());
+			std::string posMsg = "Map goal world pos x=" + std::to_string(goalPosition.x) + ", y=" + std::to_string(goalPosition.y) + "\n";
+			OutputDebugStringA(posMsg.c_str());
+		}
+	} else {
+		// 互換性のために従来のフォールバック（ステージによる固定位置）を残す
+		switch (currentStageNo_) {
+		case 1:
+			goalPosition = mapChipField_->GetMapChipPositionByIndex(49, 3);
+			break;
+		case 2:
+		case 3:
+			goalPosition = mapChipField_->GetMapChipPositionByIndex(37, 10);
+			break;
+		default:
+			goalPosition = mapChipField_->GetMapChipPositionByIndex(5, 4);
+			break;
+		}
+		// デバッグ出力（フォールバック使用）
+		{
+			std::string msg = "No map goal found: using fallback for stage " + std::to_string(currentStageNo_) + "\n";
+			OutputDebugStringA(msg.c_str());
+		}
+	}
+
 	// ゴールインスタンスがあれば再初期化（位置のみ更新）
 	if (goal_) {
 		goal_->Initialize(goalModel_, goalPosition);
@@ -152,6 +187,10 @@ void GameScene::Initialize(int stageNo) {
 	spaceHandle_ = TextureManager::GetInstance()->Load("HUD/space.png");
 	escHandle_ = TextureManager::GetInstance()->Load("HUD/esc.png");
 
+	// --- コントローラ用スプライトをロード ---
+	aHandle_ = TextureManager::GetInstance()->Load("HUD/A.png");
+	xHandle_ = TextureManager::GetInstance()->Load("HUD/X.png");
+	selectHandle_ = TextureManager::GetInstance()->Load("HUD/select.png");
 
 	// --- 2. 座標変換・カメラの基本初期化 ---
 	worldTransform_.Initialize();
@@ -213,6 +252,17 @@ void GameScene::Initialize(int stageNo) {
 		escSprite_->SetSize({144, 64});
 	}
 
+	// コントローラ用スプライト生成
+	if (aHandle_) aSprite_ = Sprite::Create(aHandle_, {64, 600});
+	if (xHandle_) xSprite_ = Sprite::Create(xHandle_, {64, 600});
+	if (selectHandle_) selectSprite_ = Sprite::Create(selectHandle_, {64, 128});
+	if (aSprite_) aSprite_->SetSize({64,64});
+	if (xSprite_) xSprite_->SetSize({64,64});
+	if (selectSprite_) selectSprite_->SetSize({64,64});
+
+	// 初期入力はキーボードと見なす
+	lastInputIsGamepad_ = false;
+
 	finished_ = false;
 
 	// --- 5. 共通初期化処理の呼び出し ---
@@ -227,8 +277,35 @@ void GameScene::Initialize(int stageNo) {
 
 void GameScene::Update() {
 
-	// ポーズ切替
-	if (Input::GetInstance()->TriggerKey(DIK_ESCAPE)) {
+	// --- 最終入力デバイス判定（毎フレーム） ---
+	{
+		Gamepad* gp = Gamepad::GetInstance();
+		bool gpActive = false;
+		if (gp) {
+			gpActive = gp->IsPressed(XINPUT_GAMEPAD_A) || gp->IsPressed(XINPUT_GAMEPAD_B) || gp->IsPressed(XINPUT_GAMEPAD_X) || gp->IsPressed(XINPUT_GAMEPAD_Y) ||
+			           gp->IsPressed(XINPUT_GAMEPAD_BACK) || gp->IsPressed(XINPUT_GAMEPAD_START) ||
+			           gp->IsPressed(XINPUT_GAMEPAD_DPAD_UP) || gp->IsPressed(XINPUT_GAMEPAD_DPAD_DOWN) || gp->IsPressed(XINPUT_GAMEPAD_DPAD_LEFT) || gp->IsPressed(XINPUT_GAMEPAD_DPAD_RIGHT) ||
+			           std::abs(gp->GetLeftThumbXf()) > kGamepadStickThreshold || std::abs(gp->GetLeftThumbYf()) > kGamepadStickThreshold;
+		}
+		bool kbActive = false;
+		Input* in = Input::GetInstance();
+		if (in) {
+			const int keysToCheck[] = {DIK_LEFT, DIK_RIGHT, DIK_UP, DIK_DOWN, DIK_SPACE, DIK_J, DIK_R, DIK_ESCAPE, DIK_RETURN, DIK_A, DIK_D, DIK_W, DIK_S};
+			for (int k : keysToCheck) {
+				if (in->PushKey(static_cast<unsigned char>(k))) {
+					kbActive = true;
+					break;
+				}
+			}
+		}
+		// 最近操作された方を優先
+		if (gpActive && !lastInputIsGamepad_) lastInputIsGamepad_ = true;
+		else if (kbActive && lastInputIsGamepad_) lastInputIsGamepad_ = false;
+	}
+
+	// ポーズ切替（キーボード ESC または ゲームパッド START/BACK）
+	bool gpPause = Gamepad::GetInstance()->IsTriggered(XINPUT_GAMEPAD_START) || Gamepad::GetInstance()->IsTriggered(XINPUT_GAMEPAD_BACK);
+	if (Input::GetInstance()->TriggerKey(DIK_ESCAPE) || gpPause) {
 		isPaused_ = !isPaused_;
 		if (!isPaused_) {
 			showControls_ = false;
@@ -265,13 +342,12 @@ void GameScene::Update() {
 	case Phase::kPlay: {
 		// ポーズ中はゲームプレイ更新を停止してImGuiでメニュー表示
 		if (isPaused_) {
-			if (Input::GetInstance()->TriggerKey(DIK_W)) {
-				pauseMenuIndex_ = (pauseMenuIndex_ + GameScene::kPauseMenuCount - 1) % GameScene::kPauseMenuCount;
-			}
-			if (Input::GetInstance()->TriggerKey(DIK_S)) {
-				pauseMenuIndex_ = (pauseMenuIndex_ + 1) % GameScene::kPauseMenuCount;
-			}
-			if (Input::GetInstance()->TriggerKey(DIK_SPACE) || Input::GetInstance()->TriggerKey(DIK_RETURN)) {
+			// UI にポーズ入力を処理させる
+			bool confirm = false;
+			bool cancel = false;
+			UI_->HandlePauseInput(pauseMenuIndex_, confirm, cancel);
+
+			if (confirm) {
 				if (pauseMenuIndex_ == 0) {
 					Reset();
 					isPaused_ = false;
@@ -280,6 +356,11 @@ void GameScene::Update() {
 				} else if (pauseMenuIndex_ == 1) {
 					finished_ = true;
 				}
+			}
+			if (cancel) {
+				// キャンセル（ESC 相当）はポーズ解除
+				isPaused_ = false;
+				showControls_ = false;
 			}
 
 #ifdef _DEBUG
@@ -496,24 +577,55 @@ void GameScene::Draw() {
 	}
 
 	Sprite::PreDraw(dxCommon->GetCommandList());
-	if (Input::GetInstance()->PushKey(DIK_J)) {
-		jSprite_->SetColor({0.5f, 0.5f, 0.5f, 1.0f});
+	if (!lastInputIsGamepad_) {
+		// キーボード表示（既存）
+		if (Input::GetInstance()->PushKey(DIK_J)) {
+			jSprite_->SetColor({0.5f, 0.5f, 0.5f, 1.0f});
+		} else {
+			jSprite_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
+		}
+		jSprite_->Draw();
+		if (Input::GetInstance()->PushKey(DIK_SPACE)) {
+			spaceSprite_->SetColor({0.5f, 0.5f, 0.5f, 1.0f});
+		} else {
+			spaceSprite_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
+		}
+		spaceSprite_->Draw();
+		if (Input::GetInstance()->PushKey(DIK_ESCAPE)) {
+			escSprite_->SetColor({0.5f, 0.5f, 0.5f, 1.0f});
+		} else {
+			escSprite_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
+		}
+		escSprite_->Draw();
 	} else {
-		jSprite_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
+		// コントローラ表示
+		// A (ジャンプ/決定)
+		if (Gamepad::GetInstance()->IsPressed(XINPUT_GAMEPAD_A)) {
+			aSprite_->SetColor({0.5f,0.5f,0.5f,1.0f});
+		} else {
+			aSprite_->SetColor({1.0f,1.0f,1.0f,1.0f});
+		}
+		aSprite_->SetPosition({64,600});
+		aSprite_->Draw();
+
+		// X (攻撃)
+		if (Gamepad::GetInstance()->IsPressed(XINPUT_GAMEPAD_X)) {
+			xSprite_->SetColor({0.5f,0.5f,0.5f,1.0f});
+		} else {
+			xSprite_->SetColor({1.0f,1.0f,1.0f,1.0f});
+		}
+		xSprite_->SetPosition({192,600});
+		xSprite_->Draw();
+
+		// START / SELECT 表示（select.png）
+		if (Gamepad::GetInstance()->IsPressed(XINPUT_GAMEPAD_START) || Gamepad::GetInstance()->IsPressed(XINPUT_GAMEPAD_BACK)) {
+			selectSprite_->SetColor({0.5f,0.5f,0.5f,1.0f});
+		} else {
+			selectSprite_->SetColor({1.0f,1.0f,1.0f,1.0f});
+		}
+		selectSprite_->SetPosition({64,128});
+		selectSprite_->Draw();
 	}
-	jSprite_->Draw();
-	if (Input::GetInstance()->PushKey(DIK_SPACE)) {
-		spaceSprite_->SetColor({0.5f, 0.5f, 0.5f, 1.0f});
-	} else {
-		spaceSprite_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
-	}
-	spaceSprite_->Draw();
-	if (Input::GetInstance()->PushKey(DIK_ESCAPE)) {
-		escSprite_->SetColor({0.5f, 0.5f, 0.5f, 1.0f});
-	} else {
-		escSprite_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
-	}
-	escSprite_->Draw();
 	Sprite::PostDraw();
 
 	HUD_->Draw(player_);

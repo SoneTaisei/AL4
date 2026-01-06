@@ -96,6 +96,19 @@ private:
 	uint32_t escHandle_;
 	KamataEngine::Sprite* escSprite_ = nullptr;
 
+	// --- controller UI (追加) ---
+	uint32_t aHandle_ = 0;
+	KamataEngine::Sprite* aSprite_ = nullptr;
+	uint32_t xHandle_ = 0;
+	KamataEngine::Sprite* xSprite_ = nullptr;
+	uint32_t selectHandle_ = 0;
+	KamataEngine::Sprite* selectSprite_ = nullptr;
+
+	// 最終入力デバイス（true = gamepad, false = keyboard）
+	bool lastInputIsGamepad_ = false;
+	// スティック検出閾値
+	static inline const float kGamepadStickThreshold = 0.3f;
+
 	bool isPaused_ = false;
 	bool showControls_ = false;
 	int pauseMenuIndex_ = 0;
