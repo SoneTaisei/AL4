@@ -7,6 +7,9 @@
 #include <cmath>
 // std::minなどは使わず math.h の関数を使うため include は最小限
 
+// 追加: Gamepad を使用して A ボタン判定を行う
+#include "System/Gamepad.h"
+
 using namespace KamataEngine;
 
 // デストラクタの実装
@@ -152,8 +155,7 @@ void TitleScene::Update() {
 
 				// 開始位置（上空斜めから降ってくる）
 				KamataEngine::Vector3 startPos = targetPos;
-				// ※ targetPos自体が揺れているので、startPosも影響を受けるが、
-				// 降りてくる演出としては違和感ないのでこのまま計算
+				// ※ targetPos自体が揺れているので、startPosも影響を受けるが、，
 				startPos.x += (dirX[i] > 0 ? startDistance : -startDistance);
 				startPos.y += startDistance;
 
@@ -180,7 +182,8 @@ void TitleScene::Update() {
 			}
 		}
 
-		if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
+		// キーボード SPACE または ゲームパッド A で開始
+		if (Input::GetInstance()->TriggerKey(DIK_SPACE) || Gamepad::GetInstance()->IsTriggered(XINPUT_GAMEPAD_A)) {
 			fade_->Start(Fade::Status::FadeOut, 1.0f);
 			phase_ = Phase::kFadeOut;
 		}

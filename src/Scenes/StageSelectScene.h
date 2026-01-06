@@ -54,12 +54,22 @@ private:
 	// 終了フラグ
 	bool finished_ = false;
 
-	// ESC スプライト用
+	// ESC スプライト用 (キーボード)
 	uint32_t escHandle_ = 0;
 	KamataEngine::Sprite* escSprite_ = nullptr;
+	// コントローラ用の select スプライト
+	uint32_t selectHandle_ = 0;
+	KamataEngine::Sprite* selectSprite_ = nullptr;
+
 	bool returnToTitle_ = false; // true の場合、タイトルへ戻る
 
 	std::vector<uint32_t> stageCubeTextureHandles_;
+
+	// --- 追加: 左スティックの立ち上がり検知用フラグ ---
+	static inline const float kStickThreshold = 0.3f; // デッドゾーン閾値
+	bool leftStickPrevPos_ = false; // 前フレームで右入力が有効だったか
+	bool leftStickPrevNeg_ = false; // 前フレームで左入力が有効だったか
+	bool gpActive_ = false;
 
 public:
 	~StageSelectScene();

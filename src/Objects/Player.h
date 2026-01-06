@@ -78,7 +78,7 @@ private:
 	static inline const float kJumpAcceleration = 0.5f;
 
 	//ジャンプ回数
-	const int kMaxJumpCount = 3;
+	const int kMaxJumpCount = 2;
 	int jumpCount = 0;
 
 	// 攻撃中フラグ
@@ -233,6 +233,7 @@ private:
 	/// <summary>
 	/// 移動入力 (古い名前、UpdateVelocityByInputに役割を移譲)
 	/// </summary>
+	/// <returns></returns>
 	// void Move(const KamataEngine::Vector3& gravityVector); // ← 分かりやすい名前に変更したのでコメントアウト or 削除
 
 public:

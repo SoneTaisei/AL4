@@ -2,6 +2,7 @@
 #include <fstream>
 #include <map>
 #include <sstream>
+#include <algorithm>
 
 using namespace KamataEngine;
 
@@ -14,7 +15,14 @@ std::map<std::string, MapChipType> mapChipTable = {
     {"3", MapChipType::kEnemy},       // CSVの"3"を敵出現ポイントにマップ
     {"4", MapChipType::kChasingEnemy}, // CSVの"4"を追尾する敵にマップ
     {"5", MapChipType::kShooter},     // CSVの"5"を射撃する敵にマップ
+    {"6", MapChipType::kGoal},        // CSVの"6"をゴールにマップ
 };
+}
+
+// トリム関数（前後の空白を削除）
+static inline void TrimString(std::string& s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); }));
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), s.end());
 }
 
 void MapChipField::ResetMapChipData() {
@@ -35,48 +43,45 @@ void MapChipField::LoadMapChipCsv(const std::string& filePath) {
 	ResetMapChipData();
 
 	// ファイルを開く
-	std::ifstream file;
-	file.open(filePath);
+	std::ifstream file(filePath);
 #ifdef _DEBUG
 	assert(file.is_open());
 #endif // _DEBUG
 
-	// マップチップCSV
-	std::stringstream mapChipCsv;
-	// ファイルの内容を文字列ストリームにコピー
-	mapChipCsv << file.rdbuf();
-	// ファイルを閉じる
-	file.close();
-
-	// CSVからマップチップデータを読み込む
-	for (uint32_t i = 0; i < kNumBlockVirtical; ++i) {
-		std::string line;
-		// ステージの1行を読み込む
-		getline(mapChipCsv, line);
-
-		// 1行分の文字列をストリームに変換して解析しやすくする
-		std::istringstream line_stream(line);
-
-		for (uint32_t j = 0; j < kNumBlockHorizontal; ++j) {
-			std::string word;
-			getline(line_stream, word, ',');
-
-			if (mapChipTable.contains(word)) {
-				// 読み取った数字をマップチップデータに入れていく
-				mapChipData_.data[i][j] = mapChipTable[word];
-			}
-		}
+	if (!file.is_open()) {
+		// ファイルが開けなければ何もしない（既にResetで空データになっている）
+		return;
 	}
+
+	std::string line;
+	uint32_t row = 0;
+
+	// CSVの各行を読み込み、カンマで分割して列に格納する（可変長に対応）
+	while (row < kNumBlockVirtical && std::getline(file, line)) {
+		std::istringstream line_stream(line);
+		std::string word;
+		uint32_t col = 0;
+		while (col < kNumBlockHorizontal && std::getline(line_stream, word, ',')) {
+			TrimString(word);
+			if (!word.empty() && mapChipTable.contains(word)) {
+				mapChipData_.data[row][col] = mapChipTable[word];
+			} else {
+				// 未定義トークンや空ならそのまま kBlank（Resetで既に設定済み）
+			}
+			++col;
+		}
+		// 行の列数が kNumBlockHorizontal 未満なら残りはデフォルト（kBlank）
+		++row;
+	}
+	// ファイルの行数が kNumBlockVirtical 未満でも、Resetで空白が入っているため問題なし
+	file.close();
 }
 
 MapChipType MapChipField::GetMapChipTypeByIndex(uint32_t xIndex, uint32_t yIndex) {
-	if (xIndex < 0 || kNumBlockHorizontal - 1 < xIndex) {
+	// 安全な範囲チェック（符号付き比較は不要）
+	if (xIndex >= kNumBlockHorizontal || yIndex >= kNumBlockVirtical) {
 		return MapChipType::kBlank;
 	}
-	if (yIndex < 0 || kNumBlockVirtical - 1 < yIndex) {
-		return MapChipType::kBlank;
-	}
-
 	return mapChipData_.data[yIndex][xIndex];
 }
 

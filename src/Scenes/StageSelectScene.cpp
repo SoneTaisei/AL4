@@ -3,6 +3,7 @@
 #include "Effects/Skydome.h"        // Skydomeクラスを使うために必要
 #include "Utils/TransformUpdater.h" // WorldTransformの更新に必要
 #include <memory>
+#include "System/Gamepad.h"
 
 using namespace KamataEngine;
 
@@ -21,11 +22,18 @@ void StageSelectScene::Initialize() {
 	// 1. スカイドーム用のテクスチャを読み込む
 	uint32_t skydomeTexture = TextureManager::Load("skydome/AL_skysphere.png");
 
-	// ESC スプライト用テクスチャをロード（GameScene と同じ HUD/esc.png）
+	// ESC スプライト用テクスチャをロード（キーボード用）
 	escHandle_ = TextureManager::GetInstance()->Load("HUD/esc.png");
 	escSprite_ = Sprite::Create(escHandle_, {64, 128});
 	if (escSprite_) {
 		escSprite_->SetSize({144, 64});
+	}
+
+	// コントローラ用 select スプライトをロード
+	selectHandle_ = TextureManager::GetInstance()->Load("HUD/select.png");
+	selectSprite_ = Sprite::Create(selectHandle_, {64, 128});
+	if (selectSprite_) {
+		selectSprite_->SetSize({64, 64});
 	}
 
 	// --- 3Dオブジェクトの生成 ---
@@ -70,6 +78,13 @@ void StageSelectScene::Initialize() {
 	// フェーズを初期化し、フェードインを開始
 	phase_ = Phase::kFadeIn;
 	fade_->Start(Fade::Status::FadeIn, 1.0f);
+
+	// 追加: 左スティックの前フレーム状態をリセット
+	leftStickPrevPos_ = false;
+	leftStickPrevNeg_ = false;
+
+	// 初期: コントローラ非アクティブ（キーボード表示）
+	gpActive_ = false;
 }
 
 void StageSelectScene::Update() {
@@ -83,47 +98,95 @@ void StageSelectScene::Update() {
 		}
 		break;
 
-	case Phase::kMain:
-		// 右キー
-		if (Input::GetInstance()->TriggerKey(DIK_D)) {
+	case Phase::kMain: {
+		// --- 入力ソースの「押された」検出（立ち上がりのみ） ---
+		Gamepad* gp = Gamepad::GetInstance();
+		bool gpTriggered = false;
+		if (gp) {
+			gpTriggered =
+			    gp->IsTriggered(XINPUT_GAMEPAD_A) || gp->IsTriggered(XINPUT_GAMEPAD_B) || gp->IsTriggered(XINPUT_GAMEPAD_X) ||
+			    gp->IsTriggered(XINPUT_GAMEPAD_Y) || gp->IsTriggered(XINPUT_GAMEPAD_BACK) || gp->IsTriggered(XINPUT_GAMEPAD_START) ||
+			    gp->IsTriggered(XINPUT_GAMEPAD_DPAD_UP) || gp->IsTriggered(XINPUT_GAMEPAD_DPAD_DOWN) ||
+			    gp->IsTriggered(XINPUT_GAMEPAD_DPAD_LEFT) || gp->IsTriggered(XINPUT_GAMEPAD_DPAD_RIGHT) ||
+			    gp->IsLeftThumbRightTriggered(kStickThreshold) || gp->IsLeftThumbLeftTriggered(kStickThreshold) ||
+			    gp->IsLeftThumbUpTriggered(kStickThreshold) || gp->IsLeftThumbDownTriggered(kStickThreshold);
+		}
+
+		bool kbTriggered = false;
+		auto in = Input::GetInstance();
+		if (in) {
+			const int keysToCheck[] = {DIK_LEFT, DIK_RIGHT, DIK_UP, DIK_DOWN, DIK_SPACE, DIK_J, DIK_R, DIK_ESCAPE, DIK_RETURN, DIK_A, DIK_D, DIK_W, DIK_S};
+			for (int k : keysToCheck) {
+				if (in->TriggerKey(char(k))) {
+					kbTriggered = true;
+					break;
+				}
+			}
+		}
+
+		// 入力が発生した方の表示に切り替える（押された後は持続）
+		if (gpTriggered) {
+			gpActive_ = true;
+		} else if (kbTriggered) {
+			gpActive_ = false;
+		}
+
+		// 左スティックの正規化値（移動のための立ち上がり検出）
+		float leftX = gp ? gp->GetLeftThumbXf() : 0.0f;
+		bool stickRightNow = leftX > kStickThreshold;
+		bool stickLeftNow = leftX < -kStickThreshold;
+
+		// 入力判定（キーボード・DPadのトリガー、またはスティック立ち上がり）
+		bool rightTriggered =
+		    Input::GetInstance()->TriggerKey(DIK_D) ||
+		    (gp && gp->IsTriggered(XINPUT_GAMEPAD_DPAD_RIGHT)) ||
+		    (gp && (gp->IsLeftThumbRightTriggered(kStickThreshold)));
+		bool leftTriggered =
+		    Input::GetInstance()->TriggerKey(DIK_A) ||
+		    (gp && gp->IsTriggered(XINPUT_GAMEPAD_DPAD_LEFT)) ||
+		    (gp && (gp->IsLeftThumbLeftTriggered(kStickThreshold)));
+
+		// 右移動
+		if (rightTriggered) {
 			cursorCol_++;
 			if (cursorCol_ > 2) {
 				cursorCol_ = 0;
 			}
 		}
-		// 左キー
-		if (Input::GetInstance()->TriggerKey(DIK_A)) {
+		// 左移動
+		if (leftTriggered) {
 			cursorCol_--;
 			if (cursorCol_ < 0) {
 				cursorCol_ = 2;
 			}
 		}
-		// 上下キー
-		// if (Input::GetInstance()->TriggerKey(DIK_UP) || Input::GetInstance()->TriggerKey(DIK_DOWN)) {
-		//	cursorRow_ = 1 - cursorRow_; // 0なら1に、1なら0に切り替える
-		//}
 
 		// 行と列から最終的なステージ番号を計算
 		selectedStageIndex_ = cursorRow_ * 5 + cursorCol_;
 
 		rotationSpeed.y = 0.05f;
 
-		// SPACEキーが押されたらフェードアウトを開始
-		if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
-			// ここではまだフェードアウトしない
-			// SE（決定音）を鳴らすならここ
+		// SPACEキー or A ボタン が押されたら選択
+		if (Input::GetInstance()->TriggerKey(DIK_SPACE) || (gp && gp->IsTriggered(XINPUT_GAMEPAD_A))) {
 			selectionTimer_ = 0;         // タイマーリセット
 			phase_ = Phase::kSelected;   // フェーズ移行
 			selectionJumpHeight_ = 0.0f; // 位置はリセット
 			jumpVelocity_ = 0.8f;
 		}
 
-		// ESCキーでタイトルへ戻る
-		if (Input::GetInstance()->TriggerKey(DIK_ESCAPE)) {
+		// ESCキー or BACK(Select) or START でタイトルへ戻る
+		if (Input::GetInstance()->TriggerKey(DIK_ESCAPE) || (gp && (gp->IsTriggered(XINPUT_GAMEPAD_BACK) || gp->IsTriggered(XINPUT_GAMEPAD_START)))) {
 			returnToTitle_ = true;
 			finished_ = true;
 		}
+
+		// 更新: 次フレーム用にスティックの前フレーム状態を保存（Gamepadが内部で管理）
+		// leftStickPrevPos_/leftStickPrevNeg_はもう内部判定に依存していないため維持のみ
+		leftStickPrevPos_ = stickRightNow;
+		leftStickPrevNeg_ = stickLeftNow;
 		break;
+	}
+
 	case Phase::kSelected:
 		selectionTimer_++;
 
@@ -242,15 +305,29 @@ void StageSelectScene::Draw() {
 	// 3Dモデル描画の終了
 	Model::PostDraw();
 
-	// ESC スプライトを 2D 描画（GameScene と同じ位置・サイズ・押下で暗くする挙動）
+	// ESC / SELECT スプライトの暗転判定（キーボードは esc.png、コントローラは select.png）
 	Sprite::PreDraw(dxCommon->GetCommandList());
-	if (escSprite_) {
-		if (Input::GetInstance()->PushKey(DIK_ESCAPE)) {
-			escSprite_->SetColor({0.5f, 0.5f, 0.5f, 1.0f});
-		} else {
-			escSprite_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
+	{
+		if (gpActive_ && selectSprite_) {
+			// コントローラ用 select 表示 (暗転は START/BACK 押下で反映)
+			Gamepad* gp = Gamepad::GetInstance();
+			if (gp && (gp->IsPressed(XINPUT_GAMEPAD_BACK) || gp->IsPressed(XINPUT_GAMEPAD_START))) {
+				selectSprite_->SetColor({0.5f, 0.5f, 0.5f, 1.0f});
+			} else {
+				selectSprite_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
+			}
+			selectSprite_->SetPosition({64,128});
+			selectSprite_->Draw();
+		} else if (escSprite_) {
+			// キーボード用 esc 表示（既存）
+			if (Input::GetInstance()->PushKey(DIK_ESCAPE)) {
+				escSprite_->SetColor({0.5f, 0.5f, 0.5f, 1.0f});
+			} else {
+				escSprite_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
+			}
+			escSprite_->SetPosition({64,128});
+			escSprite_->Draw();
 		}
-		escSprite_->Draw();
 	}
 	Sprite::PostDraw();
 }
