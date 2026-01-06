@@ -756,6 +756,15 @@ void Player::Initialize(KamataEngine::Model* model, uint32_t textureHandle, Kama
 
 	worldTransform_.rotation_.y = std::numbers::pi_v<float> / 2.0f;
 
+	// 初期化時に左右向きと回転補間状態を明示的にリセットしておく
+	// これにより、再利用時に前回の向き補間が残ってフェード中に不正な向きになるのを防ぐ
+	lrDirection_ = LRDirection::kRight;
+	turnFirstRotationY_ = worldTransform_.rotation_.y;
+	// turnTimer_ を 1.0f にして補間を即時完了させ、回転補間で勝手に値が変わらないようにする
+	turnTimer_ = 1.0f;
+	// カメラZ回転は描画時に上書きするが念のため0に初期化
+	worldTransform_.rotation_.z = 0.0f;
+
 	// 座標を元に行列の更新を行う
 	TransformUpdater::WorldTransformUpdate(worldTransform_);
 	worldTransform_.TransferMatrix();
@@ -891,7 +900,7 @@ void Player::Update(const KamataEngine::Vector3& gravityVector, float cameraAngl
 	Vector3 finalMove = (velocity_ + attackMove) * timeScale;
 
 	// ★重要: 重力加速度が UpdateVelocityByInput で 1.0倍分 加算されてしまっているので、
-	// スロー時(timeScale < 1.0)は加算されすぎた分を少し戻すハック（簡易補正）
+	// スロー時(timeScale < 1.0f)は加算されすぎた分を少し戻すハック（簡易補正）
 	if (timeScale < 1.0f) {
 		velocity_ -= gravityVector * (1.0f - timeScale);
 	}

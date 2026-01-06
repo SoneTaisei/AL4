@@ -615,8 +615,9 @@ void GameScene::CheckAllCollisions() {
 	aabb1 = player_->GetAABB();
 	aabb2 = goal_->GetAABB();
 
+	// 修正: 死亡演出中や既に死亡状態のときはゴール判定を無視する
 	if (IsColliding(aabb1, aabb2)) {
-		if (phase_ == Phase::kPlay) {
+		if (phase_ == Phase::kPlay && player_->GetIsAlive() && !player_->GetIsDeadAnimating()) {
 			phase_ = Phase::kGoalAnimation;
 			player_->StartGoalAnimation();
 			// カメラ演出用タイマーのリセット
