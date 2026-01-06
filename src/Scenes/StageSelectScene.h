@@ -54,6 +54,11 @@ private:
 	// 終了フラグ
 	bool finished_ = false;
 
+	// ESC スプライト用
+	uint32_t escHandle_ = 0;
+	KamataEngine::Sprite* escSprite_ = nullptr;
+	bool returnToTitle_ = false; // true の場合、タイトルへ戻る
+
 	std::vector<uint32_t> stageCubeTextureHandles_;
 
 public:
@@ -65,4 +70,7 @@ public:
 	bool GetIsFinished() const { return finished_; }
 	void SetIsFinished(bool finished) { finished_ = finished; }
 	int GetSelectedStageNo() const { return selectedStageIndex_ + 1; }
+
+	// タイトル戻りフラグの参照
+	bool GetReturnToTitle() const { return returnToTitle_; }
 };

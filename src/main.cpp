@@ -67,18 +67,27 @@ void ChangeScene() {
 		}
 		break;
 
-	case Scene::kStageSelect: // ★ステージセレクトのケース
+	case Scene::kStageSelect:
 		if (stageSelectScene && stageSelectScene->GetIsFinished()) {
-			// 選択されたステージ番号を取得
-			int stageNo = stageSelectScene->GetSelectedStageNo();
+			// ESCでタイトルに戻るフラグが立っているかを確認
+			if (stageSelectScene->GetReturnToTitle()) {
+				delete stageSelectScene;
+				stageSelectScene = nullptr;
 
-			delete stageSelectScene;
-			stageSelectScene = nullptr;
+				titleScene = new TitleScene();
+				titleScene->Initialize();
+				scene = Scene::kTitle;
+			} else {
+				// 選択されたステージ番号を取得してゲームへ遷移
+				int stageNo = stageSelectScene->GetSelectedStageNo();
 
-			// 次のシーン（ゲーム）にステージ番号を渡す
-			gameScene = new GameScene();
-			gameScene->Initialize(stageNo); // ← ステージ番号を渡す
-			scene = Scene::kGame;
+				delete stageSelectScene;
+				stageSelectScene = nullptr;
+
+				gameScene = new GameScene();
+				gameScene->Initialize(stageNo);
+				scene = Scene::kGame;
+			}
 		}
 		break;
 

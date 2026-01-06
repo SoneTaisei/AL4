@@ -21,6 +21,13 @@ void StageSelectScene::Initialize() {
 	// 1. スカイドーム用のテクスチャを読み込む
 	uint32_t skydomeTexture = TextureManager::Load("skydome/AL_skysphere.png");
 
+	// ESC スプライト用テクスチャをロード（GameScene と同じ HUD/esc.png）
+	escHandle_ = TextureManager::GetInstance()->Load("HUD/esc.png");
+	escSprite_ = Sprite::Create(escHandle_, {64, 128});
+	if (escSprite_) {
+		escSprite_->SetSize({144, 64});
+	}
+
 	// --- 3Dオブジェクトの生成 ---
 	// 背景天球
 	skydome_ = new Skydome();
@@ -109,6 +116,12 @@ void StageSelectScene::Update() {
 			phase_ = Phase::kSelected;   // フェーズ移行
 			selectionJumpHeight_ = 0.0f; // 位置はリセット
 			jumpVelocity_ = 0.8f;
+		}
+
+		// ESCキーでタイトルへ戻る
+		if (Input::GetInstance()->TriggerKey(DIK_ESCAPE)) {
+			returnToTitle_ = true;
+			finished_ = true;
 		}
 		break;
 	case Phase::kSelected:
@@ -228,6 +241,18 @@ void StageSelectScene::Draw() {
 
 	// 3Dモデル描画の終了
 	Model::PostDraw();
+
+	// ESC スプライトを 2D 描画（GameScene と同じ位置・サイズ・押下で暗くする挙動）
+	Sprite::PreDraw(dxCommon->GetCommandList());
+	if (escSprite_) {
+		if (Input::GetInstance()->PushKey(DIK_ESCAPE)) {
+			escSprite_->SetColor({0.5f, 0.5f, 0.5f, 1.0f});
+		} else {
+			escSprite_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
+		}
+		escSprite_->Draw();
+	}
+	Sprite::PostDraw();
 }
 
 StageSelectScene::~StageSelectScene() {
@@ -246,4 +271,6 @@ StageSelectScene::~StageSelectScene() {
 
 	// フェードの解放
 	delete fade_;
+
+	// Sprite オブジェクトはエンジン側で管理される実装の可能性が高いため明示削除は行わない（GameScene の実装に合わせる）
 }
