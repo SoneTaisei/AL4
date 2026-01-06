@@ -93,6 +93,8 @@ private:
 	KamataEngine::Sprite* jSprite_ = {};
 	uint32_t spaceHandle_;
 	KamataEngine::Sprite* spaceSprite_ = {};
+	uint32_t escHandle_;
+	KamataEngine::Sprite* escSprite_ = nullptr;
 
 	bool isPaused_ = false;
 	bool showControls_ = false;

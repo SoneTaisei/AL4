@@ -50,7 +50,7 @@ void HUD::Draw(const Player* player) {
 	Sprite::PreDraw(dxCommon->GetCommandList());
 
 	for (int i = 0; i < 3; ++i) {
-		hpSpritePosition_[i] = {50.0f + float(i) * 60.0f, 50.0f};
+		hpSpritePosition_[i] = {64.0f + float(i) * 60.0f, 50.0f};
 
 		// --- 1. アニメーション計算 ---
 		// このハートがあるべき目標の大きさ（HPが残っていれば1.0、なければ0.0）

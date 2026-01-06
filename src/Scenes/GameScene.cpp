@@ -150,6 +150,8 @@ void GameScene::Initialize(int stageNo) {
 
 	jHandle_ = TextureManager::GetInstance()->Load("HUD/J.png");
 	spaceHandle_ = TextureManager::GetInstance()->Load("HUD/space.png");
+	escHandle_ = TextureManager::GetInstance()->Load("HUD/esc.png");
+
 
 	// --- 2. 座標変換・カメラの基本初期化 ---
 	worldTransform_.Initialize();
@@ -205,6 +207,10 @@ void GameScene::Initialize(int stageNo) {
 	spaceSprite_ = Sprite::Create(spaceHandle_, {192, 600});
 	if (spaceSprite_) {
 		spaceSprite_->SetSize({224, 64});
+	}
+	escSprite_ = Sprite::Create(escHandle_, {64, 128});
+	if (escSprite_) {
+		escSprite_->SetSize({144, 64});
 	}
 
 	finished_ = false;
@@ -502,6 +508,12 @@ void GameScene::Draw() {
 		spaceSprite_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
 	}
 	spaceSprite_->Draw();
+	if (Input::GetInstance()->PushKey(DIK_ESCAPE)) {
+		escSprite_->SetColor({0.5f, 0.5f, 0.5f, 1.0f});
+	} else {
+		escSprite_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
+	}
+	escSprite_->Draw();
 	Sprite::PostDraw();
 
 	HUD_->Draw(player_);

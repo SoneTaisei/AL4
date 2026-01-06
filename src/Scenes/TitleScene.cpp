@@ -14,6 +14,8 @@ TitleScene::~TitleScene() {
 	delete modelTitle_;
 	delete modelPlayer_;
 	delete modelEnemy_;
+	delete modelShooterEnemy_;
+	delete modelChasingEnemy_;
 	delete fade_;
 	delete skydome_;
 }
@@ -23,6 +25,8 @@ void TitleScene::Initialize() {
 	modelTitle_ = KamataEngine::Model::CreateFromOBJ("TitleName2");
 	modelPlayer_ = KamataEngine::Model::CreateFromOBJ("AL3_Player");
 	modelEnemy_ = KamataEngine::Model::CreateFromOBJ("AL3_Enemy");
+	modelShooterEnemy_ = KamataEngine::Model::CreateFromOBJ("AL3_ShooterEnemy");
+	modelChasingEnemy_ = KamataEngine::Model::CreateFromOBJ("AL3_ChasingEnemy");
 	skydomeModel_ = KamataEngine::Model::CreateFromOBJ("skydome", true);
 
 	skydomeTextureHandle_ = TextureManager::Load("skydome/AL_skysphere.png");
@@ -84,7 +88,7 @@ void TitleScene::Update() {
 
 		// --- 2. プレイヤーの落下・バウンド処理 ---
 		if (!isLanding_) {
-			playerVelocityY_ -= 0.05f;
+			playerVelocityY_ -= 0.020f;
 			worldTransformPlayer_.translation_.y += playerVelocityY_;
 
 			if (worldTransformPlayer_.translation_.y <= 0.0f) {
@@ -218,7 +222,17 @@ void TitleScene::Draw() {
 
 	// 敵の描画（4体分）
 	for (int i = 0; i < 4; ++i) {
-		modelEnemy_->Draw(worldTransformEnemies_[i], camera_);
+		KamataEngine::Model* currentModel = modelEnemy_; // デフォルトは通常
+
+		// インデックスによってモデルを切り替え
+		if (i == 1)
+			currentModel = modelShooterEnemy_; // 2体目はShooter
+		if (i == 2)
+			currentModel = modelChasingEnemy_; // 3体目はChasing
+		if (i == 3)
+			currentModel = modelShooterEnemy_; // 4体目もShooter（または通常）
+
+		currentModel->Draw(worldTransformEnemies_[i], camera_);
 	}
 
 	KamataEngine::Model::PostDraw();
