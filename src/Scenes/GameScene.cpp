@@ -342,13 +342,12 @@ void GameScene::Update() {
 	case Phase::kPlay: {
 		// ポーズ中はゲームプレイ更新を停止してImGuiでメニュー表示
 		if (isPaused_) {
-			if (Input::GetInstance()->TriggerKey(DIK_W)) {
-				pauseMenuIndex_ = (pauseMenuIndex_ + GameScene::kPauseMenuCount - 1) % GameScene::kPauseMenuCount;
-			}
-			if (Input::GetInstance()->TriggerKey(DIK_S)) {
-				pauseMenuIndex_ = (pauseMenuIndex_ + 1) % GameScene::kPauseMenuCount;
-			}
-			if (Input::GetInstance()->TriggerKey(DIK_SPACE) || Input::GetInstance()->TriggerKey(DIK_RETURN)) {
+			// UI にポーズ入力を処理させる
+			bool confirm = false;
+			bool cancel = false;
+			UI_->HandlePauseInput(pauseMenuIndex_, confirm, cancel);
+
+			if (confirm) {
 				if (pauseMenuIndex_ == 0) {
 					Reset();
 					isPaused_ = false;
@@ -357,6 +356,11 @@ void GameScene::Update() {
 				} else if (pauseMenuIndex_ == 1) {
 					finished_ = true;
 				}
+			}
+			if (cancel) {
+				// キャンセル（ESC 相当）はポーズ解除
+				isPaused_ = false;
+				showControls_ = false;
 			}
 
 #ifdef _DEBUG
