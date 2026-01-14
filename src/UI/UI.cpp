@@ -6,14 +6,14 @@
 using namespace KamataEngine;
 
 void UI::Initialize() {
-	pausdHandle_ = TextureManager::GetInstance()->Load("UI/pause.png");
-	backGroundHnadle_ = TextureManager::GetInstance()->Load("white1x1.png");
-	arrowHnadle_ = TextureManager::GetInstance()->Load("UI/arrow.png");
-	pausdSprite_ = Sprite::Create(pausdHandle_, {});
-	pausdSprite_->SetSize({768, 432});
-	backGroundSprite_ = Sprite::Create(backGroundHnadle_, {});
+	pausedHnadle_ = TextureManager::GetInstance()->Load("UI/pause.png");
+	backGroundHandle_ = TextureManager::GetInstance()->Load("white1x1.png");
+	arrowHandle_ = TextureManager::GetInstance()->Load("UI/arrow.png");
+	pausedSprite_ = Sprite::Create(pausedHnadle_, {});
+	pausedSprite_->SetSize({768, 432});
+	backGroundSprite_ = Sprite::Create(backGroundHandle_, {});
 	backGroundSprite_->SetSize({1280, 720});
-	arrowSprite_ = Sprite::Create(arrowHnadle_, {});
+	arrowSprite_ = Sprite::Create(arrowHandle_, {});
 	arrowSprite_->SetSize({80, 32});
 
 	// 初期はキーボード表示
@@ -123,9 +123,9 @@ void UI::Draw(int pauseMenuIndex) {
 	Sprite::PreDraw(dxCommon->GetCommandList());
 	backGroundSprite_->SetColor({0.0f, 0.0f, 0.0f, 0.8f});
 	backGroundSprite_->Draw();
-	pausdSpritePosition_ = {1280 / 2 - pausdSprite_->GetSize().x / 2.0f, 720 / 2 - pausdSprite_->GetSize().y / 2.0f};
-	pausdSprite_->SetPosition({pausdSpritePosition_});
-	pausdSprite_->Draw();
+	pausedSpritePosition_ = {1280 / 2 - pausedSprite_->GetSize().x / 2.0f, 720 / 2 - pausedSprite_->GetSize().y / 2.0f};
+	pausedSprite_->SetPosition({pausedSpritePosition_});
+	pausedSprite_->Draw();
 
 	// 矢印は選択インデックスに合わせて表示
 	if (pauseMenuIndex == 0) {

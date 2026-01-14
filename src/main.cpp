@@ -152,7 +152,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	titleScene = new TitleScene();
 	titleScene->Initialize();
 
-	// 初期シーンがkTitle (enum値=1) なので、インデックスは0に設定します。
+	// 初期シーンがkTitle (Enum値=1) なので、インデックスは0に設定します。
 	static int selectedSceneIndex = 0;
 
 	/*********************************************************
@@ -183,7 +183,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
 		// 「Change Scene」ボタンが押されたらシーンを強制的に切り替える
 		if (ImGui::Button("Change Scene")) {
-			// 選択されているインデックスから、切り替えたいシーンのenum値を取得
+			// 選択されているインデックスから、切り替えたいシーンのEnum値を取得
 			Scene nextScene = static_cast<Scene>(selectedSceneIndex + 1);
 
 			// 現在のシーンと選択されたシーンが異なる場合のみ、切り替え処理を実行

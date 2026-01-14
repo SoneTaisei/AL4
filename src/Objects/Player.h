@@ -112,7 +112,7 @@ private:
 	bool isAlive_ = false;
 
 	// 無敵
-	bool isInvicible_ = false;
+	bool isInvincible_ = false;
 
 	// ノックバックの強さ
 	static inline const float kKnockbackHorizontalPower = 0.3f; // 水平方向の強さ
@@ -307,7 +307,7 @@ public:
 	bool GetIsAlive() const { return isAlive_; }
 
 	// 無敵状態を取得する
-	bool GetIsInvicible() const { return isInvicible_; }
+	bool GetIsInvincible() const { return isInvincible_; }
 
 	bool GetIsAttacking() const { return isAttacking_; }
 

@@ -28,7 +28,7 @@ void Player::UpdateAttack(const KamataEngine::Vector3& gravityVector, KamataEngi
 		attackTimer_ -= 1.0f / 60.0f;
 		float elapsedTime = kAttackDuration - attackTimer_;
 		// 攻撃中は無敵
-		isInvicible_ = true;
+		isInvincible_ = true;
 
 		// フェーズ1：タメ (Squash)
 		if (elapsedTime < kAttackSquashDuration) {
@@ -74,7 +74,7 @@ void Player::UpdateAttack(const KamataEngine::Vector3& gravityVector, KamataEngi
 
 		// 被ダメージによる無敵時間中でなければ、無敵状態を解除
 		if (invincibleTimer_ <= 0.0f) {
-			isInvicible_ = false;
+			isInvincible_ = false;
 		}
 
 		// キーボードJまたはゲームパッドXで攻撃
@@ -677,7 +677,7 @@ AABB Player::GetAABB() {
 
 void Player::OnCollision(const KamataEngine::WorldTransform &worldTransform) {
 	// 無敵状態、またはすでに死亡している場合は何もしない
-	if (isInvicible_ || !isAlive_) {
+	if (isInvincible_ || !isAlive_) {
 		return;
 	}
 
@@ -700,7 +700,7 @@ void Player::OnCollision(const KamataEngine::WorldTransform &worldTransform) {
 	// ★変更点: else を削除し、HPが0になった場合でもノックバック処理を実行する
 
 	// ダメージを受けたら無敵時間を設定（死ぬときも無敵にしておくと安全）
-	isInvicible_ = true;
+	isInvincible_ = true;
 	invincibleTimer_ = kInvincibleDuration;
 
 	// 敵のワールド座標を取得
@@ -801,7 +801,7 @@ void Player::Initialize(KamataEngine::Model* model, uint32_t textureHandle, Kama
 	isDeadAnimating_ = false;
 
 	// 無敵状態
-	isInvicible_ = false;
+	isInvincible_ = false;
 
 	// HPを最大値で初期化
 	hp_ = kMaxHp;
@@ -883,7 +883,7 @@ void Player::Update(const KamataEngine::Vector3& gravityVector, float cameraAngl
 		invincibleTimer_ -= (1.0f / 60.0f) * timeScale; // ★スロー対応
 		if (invincibleTimer_ <= 0.0f) {
 			if (!isAttacking_) {
-				isInvicible_ = false;
+				isInvincible_ = false;
 			}
 		}
 	}
@@ -964,7 +964,7 @@ void Player::StartGoalAnimation() {
 	goalAnimationPhase_ = GoalAnimationPhase::kSpin;
 	goalAnimTimer_ = 0.0f;
 
-	isInvicible_ = false;
+	isInvincible_ = false;
 	invincibleTimer_ = 0.0f;
 
 	// 着地判定のために現在のY座標を保存 (attackStartPosition_を再利用)

@@ -19,13 +19,13 @@ public:
 	void Draw(int pauseMenuIndex);
 
 private:
-	uint32_t pausdHandle_;
-	uint32_t backGroundHnadle_;
-	uint32_t arrowHnadle_;
-	KamataEngine::Sprite* pausdSprite_ = {};
+	uint32_t pausedHnadle_;
+	uint32_t backGroundHandle_;
+	uint32_t arrowHandle_;
+	KamataEngine::Sprite* pausedSprite_ = {};
 	KamataEngine::Sprite* backGroundSprite_ = {};
 	KamataEngine::Sprite* arrowSprite_ = {};
-	KamataEngine::Vector2 pausdSpritePosition_ = {};
+	KamataEngine::Vector2 pausedSpritePosition_ = {};
 
 	// 最後に使われた入力がコントローラか（true = controller, false = keyboard）
 	bool lastInputIsGamepad_ = false;
