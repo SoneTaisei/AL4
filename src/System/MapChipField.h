@@ -24,7 +24,7 @@ private:
 	static inline const float kBlockWidth = 2.0f;
 	static inline const float kBlockHeight = 2.0f;
 	// ブロックの個数
-	static inline const uint32_t kNumBlockVirtical = 20;
+	static inline const uint32_t kNumBlockVertical = 20;
 	static inline const uint32_t kNumBlockHorizontal = 100;
 
 	// マップチップのデータ
@@ -55,7 +55,7 @@ public:
 	KamataEngine::Vector3 GetMapChipPositionByIndex(uint32_t xIndex, uint32_t yIndex);
 
 	//ブロックの数のゲッター
-	uint32_t GetNumBlockVirtical();
+	uint32_t GetNumBlockVertical();
 	uint32_t GetNumBlockHorizontal();
 
 	/// <summary>

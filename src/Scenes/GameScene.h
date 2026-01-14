@@ -104,7 +104,7 @@ private:
 	uint32_t selectHandle_ = 0;
 	KamataEngine::Sprite* selectSprite_ = nullptr;
 
-	// 最終入力デバイス（true = gamepad, false = keyboard）
+	// 最終入力デバイス（true = game-pad, false = keyboard）
 	bool lastInputIsGamepad_ = false;
 	// スティック検出閾値
 	static inline const float kGamepadStickThreshold = 0.3f;

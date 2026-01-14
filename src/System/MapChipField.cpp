@@ -28,7 +28,7 @@ static inline void TrimString(std::string& s) {
 void MapChipField::ResetMapChipData() {
 	// マップチップデータをリセット
 	mapChipData_.data.clear();
-	mapChipData_.data.resize(kNumBlockVirtical);
+	mapChipData_.data.resize(kNumBlockVertical);
 	for (std::vector<MapChipType>& mapChipDataLine : mapChipData_.data) {
 		mapChipDataLine.resize(kNumBlockHorizontal);
 		// デフォルトは空白にしておく
@@ -57,7 +57,7 @@ void MapChipField::LoadMapChipCsv(const std::string& filePath) {
 	uint32_t row = 0;
 
 	// CSVの各行を読み込み、カンマで分割して列に格納する（可変長に対応）
-	while (row < kNumBlockVirtical && std::getline(file, line)) {
+	while (row < kNumBlockVertical && std::getline(file, line)) {
 		std::istringstream line_stream(line);
 		std::string word;
 		uint32_t col = 0;
@@ -79,7 +79,7 @@ void MapChipField::LoadMapChipCsv(const std::string& filePath) {
 
 MapChipType MapChipField::GetMapChipTypeByIndex(uint32_t xIndex, uint32_t yIndex) {
 	// 安全な範囲チェック（符号付き比較は不要）
-	if (xIndex >= kNumBlockHorizontal || yIndex >= kNumBlockVirtical) {
+	if (xIndex >= kNumBlockHorizontal || yIndex >= kNumBlockVertical) {
 		return MapChipType::kBlank;
 	}
 	return mapChipData_.data[yIndex][xIndex];
@@ -87,10 +87,10 @@ MapChipType MapChipField::GetMapChipTypeByIndex(uint32_t xIndex, uint32_t yIndex
 
 Vector3 MapChipField::GetMapChipPositionByIndex(uint32_t xIndex, uint32_t yIndex) {
 	//                                                         簡易的な座標変換
-	return Vector3(kBlockWidth * xIndex, kBlockHeight * (kNumBlockVirtical - 1 - yIndex ), 0);
+	return Vector3(kBlockWidth * xIndex, kBlockHeight * (kNumBlockVertical - 1 - yIndex ), 0);
 }
 
-uint32_t MapChipField::GetNumBlockVirtical() { return kNumBlockVirtical; }
+uint32_t MapChipField::GetNumBlockVertical() { return kNumBlockVertical; }
 
 uint32_t MapChipField::GetNumBlockHorizontal() { return kNumBlockHorizontal; }
 
@@ -109,7 +109,7 @@ MapChipField::IndexSet MapChipField::GetMapChipIndexSetByPosition(const KamataEn
 	uint32_t revertedYIndex = static_cast<uint32_t>(std::floor((position.y + kBlockHeight / 2.0f + kEpsilon) / kBlockHeight));
 
 	// 2. 正しいY番号に反転させる
-	indexSet.yIndex = kNumBlockVirtical - 1 - revertedYIndex;
+	indexSet.yIndex = kNumBlockVertical - 1 - revertedYIndex;
 
 	return indexSet;
 }
@@ -130,7 +130,7 @@ MapChipField::Rect MapChipField::GetRectByIndex(uint32_t xIndex, uint32_t yIndex
 
 // 指定タイプの最初のマップチップインデックスを探す実装
 bool MapChipField::FindFirstIndexByType(MapChipType type, IndexSet& outIndex) {
-	for (uint32_t y = 0; y < kNumBlockVirtical; ++y) {
+	for (uint32_t y = 0; y < kNumBlockVertical; ++y) {
 		for (uint32_t x = 0; x < kNumBlockHorizontal; ++x) {
 			if (mapChipData_.data[y][x] == type) {
 				outIndex.xIndex = x;

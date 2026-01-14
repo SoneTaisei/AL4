@@ -63,7 +63,7 @@ void GameScene::Reset() {
 	shooterEnemies_.clear();
 
 	// マップから敵を生成
-	for (uint32_t y = 0; y < mapChipField_->GetNumBlockVirtical(); ++y) {
+	for (uint32_t y = 0; y < mapChipField_->GetNumBlockVertical(); ++y) {
 		for (uint32_t x = 0; x < mapChipField_->GetNumBlockHorizontal(); ++x) {
 			MapChipType t = mapChipField_->GetMapChipTypeByIndex(x, y);
 			if (t == MapChipType::kEnemy) {
@@ -97,7 +97,7 @@ void GameScene::Reset() {
 	// 全マップを走査して kGoal を探し、見つかった中で「最も右側(x 最大)」を採用する
 	bool foundGoal = false;
 	MapChipField::IndexSet bestGoalIdx = {0, 0};
-	for (uint32_t y = 0; y < mapChipField_->GetNumBlockVirtical(); ++y) {
+	for (uint32_t y = 0; y < mapChipField_->GetNumBlockVertical(); ++y) {
 		for (uint32_t x = 0; x < mapChipField_->GetNumBlockHorizontal(); ++x) {
 			if (mapChipField_->GetMapChipTypeByIndex(x, y) == MapChipType::kGoal) {
 				if (!foundGoal || x > bestGoalIdx.xIndex || (x == bestGoalIdx.xIndex && y > bestGoalIdx.yIndex)) {
@@ -169,12 +169,12 @@ void GameScene::Initialize(int stageNo) {
 	enemyTextureHandle_ = TextureManager::Load("AL3_Enemy/Enemy.png");
 	chasingEnemyTextureHandle_ = TextureManager::Load("AL3_ChasingEnemy/ChasingEnemy.png");
 	shooterEnemyTextureHandle_ = TextureManager::Load("AL3_ShooterEnemy/ShooterEnemy.png");
-	skysphereTextureHandle = TextureManager::Load("skydome/AL_skysphere.png");
+	skysphereTextureHandle = TextureManager::Load("skyDome/AL_skySphere.png");
 	particleTextureHandle = TextureManager::Load("AL3_Particle/AL3_Particle.png");
 	projectileTextureHandle_ = TextureManager::Load("ball/ball.png");
 
 	cubeModel_ = Model::CreateFromOBJ("debugCube");
-	modelSkydome_ = Model::CreateFromOBJ("skydome", true);
+	modelSkydome_ = Model::CreateFromOBJ("skyDome", true);
 	playerModel_ = Model::CreateFromOBJ("AL3_Player", true);
 	enemyModel_ = Model::CreateFromOBJ("AL3_Enemy", true);
 	chasingEnemyModel_ = Model::CreateFromOBJ("AL3_ChasingEnemy", true);
@@ -635,7 +635,7 @@ void GameScene::Draw() {
 }
 
 void GameScene::GenerateBlocks() {
-	uint32_t numBlockVirtical = mapChipField_->GetNumBlockVirtical();
+	uint32_t numBlockVirtical = mapChipField_->GetNumBlockVertical();
 	uint32_t numBlockHorizontal = mapChipField_->GetNumBlockHorizontal();
 	worldTransformBlocks_.resize(numBlockVirtical);
 	for (uint32_t i = 0; i < numBlockVirtical; ++i) {
@@ -657,7 +657,7 @@ void GameScene::GenerateBlocks() {
 void GameScene::CheckAllCollisions() {
 	AABB aabb1, aabb2;
 
-	if (player_->GetIsInvicible() == false) {
+	if (player_->GetIsInvincible() == false) {
 		aabb1 = player_->GetAABB();
 
 		for (Enemy* enemy : enemies_) {
