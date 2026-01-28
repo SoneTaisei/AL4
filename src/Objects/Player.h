@@ -6,6 +6,8 @@
 class TransformUpdater;
 class MapChipField;
 class Enemy;
+class ChasingEnemy;
+class ShooterEnemy;
 
 // マップとの当たり判定情報
 struct CollisionMapInfo {
@@ -55,6 +57,14 @@ private:
 	static inline const float kAttenuation = 0.05f;
 	// 最大速度
 	static inline const float kLimitRunSpeed = 0.5f;
+	// ダッシュ速度
+	static inline const float kDashSpeed = 0.8f;
+
+	// ダッシュ攻撃の速度
+	static inline const float kDashAttackSpeed = 1.2f;
+
+	// ダッシュ中か
+	bool isDashing_ = false;
 
 	// キャラクターの当たり判定サイズ
 	static inline const float kWidth = 2.0f;
@@ -88,9 +98,9 @@ private:
 	float attackTimer_ = 0.0f;
 	// ★★★ 攻撃の時間を分割して定義 ★★★
 	// 攻撃の「タメ」の時間 <秒>
-	static inline const float kAttackSquashDuration = 0.1f;
+	static inline const float kAttackSquashDuration = 1.0f;
 	// 攻撃の「伸び」の時間 <秒>
-	static inline const float kAttackStretchDuration = 0.3f;
+	static inline const float kAttackStretchDuration = 1.0f;
 	// 攻撃の合計時間
 	static inline const float kAttackDuration = kAttackSquashDuration + kAttackStretchDuration;
 
@@ -105,8 +115,19 @@ private:
 	KamataEngine::Vector3 attackStartPosition_ = {};
 	bool isAttackBlocked_ = false;
 
+	// 近接攻撃
+	bool isMeleeAttacking_ = false;
+	float meleeAttackTimer_ = 0.0f;
+	static inline const float kMeleeAttackDuration = 1.0f;
+	static inline const float kMeleeAttackRange = 3.0f;
+	static inline const float kMeleeAttackMoveDistance = 2.0f;
+
 	// マップチップによるフィールド
 	MapChipField* mapChipFiled_ = nullptr;
+
+	const std::list<Enemy*>* enemies_ = nullptr;
+	const std::list<ChasingEnemy*>* chasingEnemies_ = nullptr;
+	const std::list<ShooterEnemy*>* shooterEnemies_ = nullptr;
 
 	// 死亡フラグ
 	bool isAlive_ = false;
@@ -158,6 +179,13 @@ private:
 		kLeftTop,     // 左上
 		kNumCorner    // 要素数
 	};
+
+	// 剣に関する変数
+	KamataEngine::Model* swordModel_ = nullptr;
+	uint32_t swordTextureHandle_ = 0u;
+	KamataEngine::WorldTransform swordWorldTransform_;
+	// 攻撃時の体の傾き
+	float attackTilt_ = 0.0f;
 
 	/// <summary>
 	/// 指定した角の座標を計算
@@ -211,6 +239,8 @@ private:
 	/// <param name="outAttackMove">計算された攻撃の移動量（出力用）</param>
 	void UpdateAttack(const KamataEngine::Vector3& gravityVector, KamataEngine::Vector3& outAttackMove);
 
+	void MeleeAttack();
+
 	/// <summary>
 	/// キー入力に応じて速度を更新する
 	/// </summary>
@@ -243,12 +273,16 @@ public:
 	/// <param name="model">モデル</param>
 	/// <param name="textureHandle">テクスチャハンドル</param>
 	/// <param name="camera">カメラ</param>
-	void Initialize(KamataEngine::Model*model,uint32_t textureHandle,KamataEngine::Camera*camera,const KamataEngine::Vector3& position);
+	void Initialize(
+	    KamataEngine::Model* model, uint32_t textureHandle, KamataEngine::Model* swordModel, uint32_t swordTextureHandle, 
+	    KamataEngine::Camera* camera, const KamataEngine::Vector3& position);
 
 	/// <summary>
 	/// 更新
 	/// </summary>
-	void Update(const KamataEngine::Vector3& gravityVector, float cameraAngleZ, float timeScale = 1.0f);
+	void Update(
+	    const KamataEngine::Vector3& gravityVector, float cameraAngleZ, const std::list<Enemy*>& enemies,
+	    const std::list<ChasingEnemy*>& chasingEnemies, const std::list<ShooterEnemy*>& shooterEnemies, float timeScale = 1.0f);
 
 	/// <summary>
 	/// 描画
@@ -315,5 +349,7 @@ public:
 
 	// 死亡演出中かどうかを取得する（追加）
 	bool GetIsDeadAnimating() const { return isDeadAnimating_; }
+
+
 
 };

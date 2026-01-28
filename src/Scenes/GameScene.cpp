@@ -42,7 +42,7 @@ void GameScene::Reset() {
 	}
 
 	// プレイヤーの状態をリセット（Initialize済みのインスタンスを再設定）
-	player_->Initialize(playerModel_, playerTextureHandle_, &camera_, playerPosition);
+	player_->Initialize(playerModel_, playerTextureHandle_,swordModel_,swordTextureHandle_, &camera_, playerPosition);
 	player_->SetMapChipField(mapChipField_);
 
 	// --- 2. 敵の全削除と再生成 ---
@@ -172,6 +172,7 @@ void GameScene::Initialize(int stageNo) {
 	skysphereTextureHandle = TextureManager::Load("skyDome/AL_skySphere.png");
 	particleTextureHandle = TextureManager::Load("AL3_Particle/AL3_Particle.png");
 	projectileTextureHandle_ = TextureManager::Load("ball/ball.png");
+	swordTextureHandle_ = TextureManager::Load("sword/sword.png");
 
 	cubeModel_ = Model::CreateFromOBJ("debugCube");
 	modelSkydome_ = Model::CreateFromOBJ("skyDome", true);
@@ -182,6 +183,7 @@ void GameScene::Initialize(int stageNo) {
 	particleModel_ = Model::CreateFromOBJ("AL3_Particle", true);
 	goalModel_ = Model::CreateFromOBJ("goal", true);
 	projectileModel_ = Model::CreateFromOBJ("ball", true);
+	swordModel_ = Model::CreateFromOBJ("sword", true);
 
 	jHandle_ = TextureManager::GetInstance()->Load("HUD/J.png");
 	spaceHandle_ = TextureManager::GetInstance()->Load("HUD/space.png");
@@ -407,8 +409,8 @@ void GameScene::Update() {
 			timeScale = 0.2f; // 死亡演出中は0.2倍速（スローモーション）
 		}
 
-		// ★変更: timeScale を渡す
-		player_->Update(gravityVector, cameraTargetAngleZ_, timeScale);
+		// ★変更: timeScale と3種の敵リストを渡す
+		player_->Update(gravityVector, cameraTargetAngleZ_, enemies_, chasingEnemies_, shooterEnemies_, timeScale);
 
 		goal_->Update();
 
@@ -653,6 +655,7 @@ void GameScene::GenerateBlocks() {
 		}
 	}
 }
+
 
 void GameScene::CheckAllCollisions() {
 	AABB aabb1, aabb2;

@@ -1,5 +1,7 @@
 #include "Objects/Player.h"
 #include "Objects/Enemy.h"
+#include "Objects/ChasingEnemy.h"
+#include "Objects/ShooterEnemy.h"
 #include "System/MapChipField.h"
 #include "System/Gamepad.h"
 #include "Utils/Easing.h"
@@ -67,12 +69,41 @@ void Player::UpdateAttack(const KamataEngine::Vector3& gravityVector, KamataEngi
 			isAttacking_ = false;
 		}
 
+	} else if (isMeleeAttacking_) {
+		meleeAttackTimer_ -= 1.0f / 60.0f;
+		float elapsed = kMeleeAttackDuration - meleeAttackTimer_;
+
+		// 攻撃発生のタイミング
+		if (elapsed >= kMeleeAttackDuration / 2.0f && elapsed < kMeleeAttackDuration / 2.0f + 1.0f / 60.0f) {
+			MeleeAttack();
+		}
+
+		// 簡単な攻撃モーション
+		float t = 1.0f - (meleeAttackTimer_ / kMeleeAttackDuration);
+		float wave = sinf(t * std::numbers::pi_v<float>);
+		worldTransform_.scale_.x = 1.0f + wave * 0.2f;
+		worldTransform_.scale_.y = 1.0f - wave * 0.2f;
+
+		Vector3 moveRight = {0, 0, 0};
+		if (gravityVector.y != 0) {
+			moveRight = {1.0f, 0.0f, 0.0f};
+		} else if (gravityVector.x != 0) {
+			moveRight = {0.0f, -1.0f, 0.0f};
+		}
+		Vector3 attackDirection = (lrDirection_ == LRDirection::kRight) ? moveRight : -moveRight;
+
+		// 攻撃中の移動
+		outAttackMove = attackDirection * kMeleeAttackMoveDistance * wave / 60.0f; // 1フレームあたりの移動量に
+
+		if (meleeAttackTimer_ <= 0.0f) {
+			isMeleeAttacking_ = false;
+		}
+
 	} else {
-		// 攻撃中でないときは、スケールを滑らかに1.0に戻す
+		// 攻撃中でないときの処理
 		worldTransform_.scale_.x = Lerp(worldTransform_.scale_.x, 1.0f, 0.2f);
 		worldTransform_.scale_.y = Lerp(worldTransform_.scale_.y, 1.0f, 0.2f);
 
-		// 被ダメージによる無敵時間中でなければ、無敵状態を解除
 		if (invincibleTimer_ <= 0.0f) {
 			isInvincible_ = false;
 		}
@@ -80,7 +111,25 @@ void Player::UpdateAttack(const KamataEngine::Vector3& gravityVector, KamataEngi
 		// キーボードJまたはゲームパッドXで攻撃
 		bool gpAttack = Gamepad::GetInstance()->IsTriggered(XINPUT_GAMEPAD_X);
 		if (Input::GetInstance()->TriggerKey(DIK_J) || gpAttack) {
-			Attack(gravityVector);
+
+			// ★修正点：SHIFT判定ではなく「現在左右に移動入力があるか」で判定
+			// UpdateVelocityByInputで計算される移動入力状態を参照
+			bool isMoving = false;
+			bool gpRight = Gamepad::GetInstance()->IsPressed(XINPUT_GAMEPAD_DPAD_RIGHT) || Gamepad::GetInstance()->GetLeftThumbXf() > 0.3f;
+			bool gpLeft = Gamepad::GetInstance()->IsPressed(XINPUT_GAMEPAD_DPAD_LEFT) || Gamepad::GetInstance()->GetLeftThumbXf() < -0.3f;
+
+			if (Input::GetInstance()->PushKey(DIK_D) || Input::GetInstance()->PushKey(DIK_A) || gpRight || gpLeft) {
+				isMoving = true;
+			}
+
+			if (isMoving) {
+				// 移動入力がある場合は突進攻撃（ダッシュ攻撃）
+				Attack(gravityVector);
+			} else {
+				// 立ち止まっている場合は近接攻撃
+				isMeleeAttacking_ = true;
+				meleeAttackTimer_ = kMeleeAttackDuration;
+			}
 		}
 	}
 }
@@ -114,9 +163,61 @@ void Player::UpdateRotationAndTransform(float cameraAngleZ) {
 		float destRotY = destRotYTable[static_cast<uint32_t>(lrDirection_)];
 		worldTransform_.rotation_.y = Lerp(turnFirstRotationY_, destRotY, turnTimer_);
 	}
-	worldTransform_.rotation_.z = cameraAngleZ;
+	worldTransform_.rotation_.z = cameraAngleZ + attackTilt_;
+
 	TransformUpdater::WorldTransformUpdate(worldTransform_);
 	worldTransform_.TransferMatrix();
+}
+
+// AABB同士の交差判定
+static bool IsColliding(const AABB& aabb1, const AABB& aabb2) {
+	if ((aabb1.min.x <= aabb2.max.x && aabb1.max.x >= aabb2.min.x) && (aabb1.min.y <= aabb2.max.y && aabb1.max.y >= aabb2.min.y) && (aabb1.min.z <= aabb2.max.z && aabb1.max.z >= aabb2.min.z)) {
+		return true;
+	}
+	return false;
+}
+
+void Player::MeleeAttack() {
+	if (!enemies_ || !chasingEnemies_ || !shooterEnemies_) {
+		return;
+	}
+
+	AABB attackAABB;
+	Vector3 playerPos = GetWorldPosition();
+	//float attackCenterY = playerPos.y;
+
+	if (lrDirection_ == LRDirection::kRight) {
+		attackAABB.min = {playerPos.x, playerPos.y - kHeight / 2.0f, 0.0f};
+		attackAABB.max = {playerPos.x + kMeleeAttackRange, playerPos.y + kHeight / 2.0f, 0.0f};
+	} else {
+		attackAABB.min = {playerPos.x - kMeleeAttackRange, playerPos.y - kHeight / 2.0f, 0.0f};
+		attackAABB.max = {playerPos.x, playerPos.y + kHeight / 2.0f, 0.0f};
+	}
+
+	for (Enemy* enemy : *enemies_) {
+		if (enemy && enemy->GetIsAlive()) {
+			AABB enemyAABB = enemy->GetAABB();
+			if (IsColliding(attackAABB, enemyAABB)) {
+				enemy->SetIsAlive(false);
+			}
+		}
+	}
+	for (ChasingEnemy* enemy : *chasingEnemies_) {
+		if (enemy && enemy->GetIsAlive()) {
+			AABB enemyAABB = enemy->GetAABB();
+			if (IsColliding(attackAABB, enemyAABB)) {
+				enemy->SetIsAlive(false);
+			}
+		}
+	}
+	for (ShooterEnemy* enemy : *shooterEnemies_) {
+		if (enemy && enemy->GetIsAlive()) {
+			AABB enemyAABB = enemy->GetAABB();
+			if (IsColliding(attackAABB, enemyAABB)) {
+				enemy->SetIsAlive(false);
+			}
+		}
+	}
 }
 
 void Player::Attack(const KamataEngine::Vector3& gravityVector) {
@@ -262,7 +363,6 @@ void Player::UpdateVelocityByInput(const KamataEngine::Vector3& gravityVector) {
 
 	// --- 左右移動 ---
 	Vector3 acceleration = {};
-	// ゲームパッドの左右入力（DPad か 左スティック）
 	bool gpRight = Gamepad::GetInstance()->IsPressed(XINPUT_GAMEPAD_DPAD_RIGHT) || Gamepad::GetInstance()->GetLeftThumbXf() > 0.3f;
 	bool gpLeft = Gamepad::GetInstance()->IsPressed(XINPUT_GAMEPAD_DPAD_LEFT) || Gamepad::GetInstance()->GetLeftThumbXf() < -0.3f;
 
@@ -309,12 +409,20 @@ void Player::UpdateVelocityByInput(const KamataEngine::Vector3& gravityVector) {
 	}
 
 	// --- 走行速度の制限 ---
+	// ダッシュ処理を追加
+
+	float currentSpeedLimit = kLimitRunSpeed;
+
 	float runSpeedDot = velocity_.x * moveRight.x + velocity_.y * moveRight.y;
 	Vector3 runVelocity = moveRight * runSpeedDot;
 	Vector3 otherVelocity = velocity_ - runVelocity;
 	float speed = sqrt(runVelocity.x * runVelocity.x + runVelocity.y * runVelocity.y);
-	if (speed > kLimitRunSpeed) {
-		runVelocity = runVelocity / speed * kLimitRunSpeed;
+	if (speed > currentSpeedLimit) {
+		runVelocity = runVelocity / speed * currentSpeedLimit;
+	}
+	velocity_ = runVelocity + otherVelocity;
+	if (speed > currentSpeedLimit) {
+		runVelocity = runVelocity / speed * currentSpeedLimit;
 	}
 	velocity_ = runVelocity + otherVelocity;
 
@@ -753,7 +861,10 @@ void Player::OnCollision(const KamataEngine::WorldTransform &worldTransform) {
 	onGround_ = false;
 }
 
-void Player::Initialize(KamataEngine::Model* model, uint32_t textureHandle, KamataEngine::Camera* camera, const KamataEngine::Vector3& position) {
+void Player::Initialize(
+    KamataEngine::Model* model, uint32_t textureHandle, 
+    KamataEngine::Model* swordModel, uint32_t swordTextureHandle, 
+    KamataEngine::Camera* camera, const KamataEngine::Vector3& position) {
 #ifdef _DEBUG
 	// NULLポインタチェック
 	assert(model);
@@ -762,6 +873,12 @@ void Player::Initialize(KamataEngine::Model* model, uint32_t textureHandle, Kama
 	// 因数として受け取ったデータをメンバ変数に記録
 	playerModel_ = model;
 	playerTextureHandle_ = textureHandle;
+
+	// 剣の初期化
+	swordModel_ = swordModel;
+	swordTextureHandle_ = swordTextureHandle;
+	swordWorldTransform_.Initialize();
+
 	camera_ = camera;
 
 	// ワールド変換の初期化
@@ -794,6 +911,10 @@ void Player::Initialize(KamataEngine::Model* model, uint32_t textureHandle, Kama
 	attackStartPosition_ = {};
 	isAttackBlocked_ = false;
 
+	// 近接攻撃フラグ
+	isMeleeAttacking_ = false;
+	meleeAttackTimer_ = 0.0f;
+
 	// 生存状態で初期化
 	isAlive_ = true;
 
@@ -809,11 +930,18 @@ void Player::Initialize(KamataEngine::Model* model, uint32_t textureHandle, Kama
 	invincibleTimer_ = 0.0f;
 }
 
-void Player::Update(const KamataEngine::Vector3& gravityVector, float cameraAngleZ, float timeScale) {
+void Player::Update(
+    const KamataEngine::Vector3& gravityVector, float cameraAngleZ, const std::list<Enemy*>& enemies,
+    const std::list<ChasingEnemy*>& chasingEnemies, const std::list<ShooterEnemy*>& shooterEnemies, float timeScale) {
+
+	enemies_ = &enemies;
+	chasingEnemies_ = &chasingEnemies;
+	shooterEnemies_ = &shooterEnemies;
 
 	if (!isAlive_) {
 		return;
 	}
+
 
 	// 画面外（下に落ちた）判定
 	const float kDeadlyHeight = 11.0f;
@@ -923,6 +1051,57 @@ void Player::Update(const KamataEngine::Vector3& gravityVector, float cameraAngl
 
 	// 4. 向きの更新
 	UpdateRotationAndTransform(cameraAngleZ);
+
+	// 1. 攻撃の傾きと剣の計算を「先」に行う
+	attackTilt_ = 0.0f; // 毎フレームリセット
+	if (isAttacking_ || isMeleeAttacking_) {
+		float t = 0.0f;
+		if (isMeleeAttacking_) {
+			t = 1.0f - (meleeAttackTimer_ / kMeleeAttackDuration);
+		} else if (isAttacking_) {
+			t = 1.0f - (attackTimer_ / kAttackDuration);
+		}
+
+		float swordAngle = 0.0f;
+		float bodyTilt = 0.0f;
+		float swordOffsetX = 0.0f; // ★剣を前後に動かすための変数
+		float switchPoint = 0.4f;
+
+		if (t < switchPoint) {
+			// --- 振りかぶり ---
+			float phaseT = t / switchPoint;
+			float easedT = EaseInOutQuad(phaseT);
+			swordAngle = -(1.5f * easedT);
+			bodyTilt = -0.3f * easedT;
+			swordOffsetX = -0.8f * easedT; // ★溜め中は少し後ろに引く
+		} else {
+			// --- 振り下ろし ---
+			float phaseT = (t - switchPoint) / (1.0f - switchPoint);
+			float easedT = EaseOutQuart(phaseT);
+			swordAngle = -1.5f + (3.3f * easedT);
+			bodyTilt = -0.3f + (0.8f * easedT);
+			swordOffsetX = -0.8f + (2.0f * easedT); // ★振り下ろしで一気に前に出す
+		}
+
+		// 2. 向きに合わせて attackTilt_ と剣の位置を決定
+		if (lrDirection_ == LRDirection::kRight) {
+			attackTilt_ = -bodyTilt;
+			swordWorldTransform_.rotation_.z = -swordAngle;
+			swordWorldTransform_.translation_.x = worldTransform_.translation_.x + 1.2f + swordOffsetX;
+		} else {
+			attackTilt_ = bodyTilt;
+			swordWorldTransform_.rotation_.z = swordAngle;
+			swordWorldTransform_.translation_.x = worldTransform_.translation_.x - 1.2f - swordOffsetX;
+		}
+		swordWorldTransform_.translation_.y = worldTransform_.translation_.y + 1.0f;
+
+		// 剣の行列を更新
+		TransformUpdater::WorldTransformUpdate(swordWorldTransform_);
+		swordWorldTransform_.TransferMatrix();
+	}
+
+	// 3. 最後にプレイヤーの回転と行列を更新（ここで attackTilt_ が反映される）
+	UpdateRotationAndTransform(cameraAngleZ);
 }
 
 void Player::Draw() {
@@ -948,6 +1127,11 @@ void Player::Draw() {
 
 	// 3Dモデルを描画
 	playerModel_->Draw(worldTransform_, *camera_, playerTextureHandle_);
+
+	if (isAttacking_ || isMeleeAttacking_) {
+		// 3Dモデル描画前処理は共通なので不要（もし変えるならPreDrawを呼ぶ）
+		swordModel_->Draw(swordWorldTransform_, *camera_, swordTextureHandle_);
+	}
 
 	// 3Dモデル描画後処理
 	KamataEngine::Model::PostDraw();
