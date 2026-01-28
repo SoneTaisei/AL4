@@ -53,6 +53,7 @@ private:
 	uint32_t skysphereTextureHandle = 0;
 	uint32_t particleTextureHandle = 0;
 	uint32_t projectileTextureHandle_ = 0;
+	uint32_t swordTextureHandle_ = 0;
 
 	// モデル
 	KamataEngine::Model* cubeModel_ = nullptr;
@@ -63,6 +64,7 @@ private:
 	KamataEngine::Model* shooterEnemyModel_ = nullptr;
 	KamataEngine::Model* particleModel_ = nullptr;
 	KamataEngine::Model* projectileModel_ = nullptr;
+	KamataEngine::Model* swordModel_ = nullptr;
 
 	KamataEngine::WorldTransform worldTransform_;
 	KamataEngine::Camera camera_;
