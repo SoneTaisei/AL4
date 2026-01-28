@@ -98,9 +98,9 @@ private:
 	float attackTimer_ = 0.0f;
 	// ★★★ 攻撃の時間を分割して定義 ★★★
 	// 攻撃の「タメ」の時間 <秒>
-	static inline const float kAttackSquashDuration = 1.0f;
+	static inline const float kAttackSquashDuration = 0.1f;
 	// 攻撃の「伸び」の時間 <秒>
-	static inline const float kAttackStretchDuration = 1.0f;
+	static inline const float kAttackStretchDuration = 0.3f;
 	// 攻撃の合計時間
 	static inline const float kAttackDuration = kAttackSquashDuration + kAttackStretchDuration;
 
@@ -118,7 +118,7 @@ private:
 	// 近接攻撃
 	bool isMeleeAttacking_ = false;
 	float meleeAttackTimer_ = 0.0f;
-	static inline const float kMeleeAttackDuration = 1.0f;
+	static inline const float kMeleeAttackDuration = 0.6f;
 	static inline const float kMeleeAttackRange = 3.0f;
 	static inline const float kMeleeAttackMoveDistance = 2.0f;
 
