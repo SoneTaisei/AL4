@@ -74,7 +74,8 @@ void Player::UpdateAttack(const KamataEngine::Vector3& gravityVector, KamataEngi
 		float elapsed = kMeleeAttackDuration - meleeAttackTimer_;
 
 		// 攻撃発生のタイミング
-		if (elapsed >= kMeleeAttackDuration / 2.0f && elapsed < kMeleeAttackDuration / 2.0f + 1.0f / 60.0f) {
+		float hitTiming = kMeleeAttackDuration / 3.0f;
+		if (elapsed >= hitTiming && elapsed < hitTiming + 1.0f / 60.0f) {
 			MeleeAttack();
 		}
 
@@ -421,23 +422,48 @@ void Player::UpdateVelocityByInput(const KamataEngine::Vector3& gravityVector) {
 		velocity_ = runVel + (velocity_ - moveRight * dot);
 	}
 
-	// --- 5. ジャンプ・重力 (既存のロジック) ---
-	if (onGround_)
-		jumpCount = 0;
-	else if (jumpCount == 0)
-		jumpCount = 1;
-
-	if (!isAttacking_ && !isMeleeAttacking_ && jumpCount < kMaxJumpCount) {
-		if (Input::GetInstance()->TriggerKey(DIK_SPACE) || Gamepad::GetInstance()->IsTriggered(XINPUT_GAMEPAD_A)) {
-			// ジャンプした瞬間に上昇速度を上書き (重力をリセットしてキレを出す)
-			Vector3 verticalVel = moveUp * (velocity_.x * moveUp.x + velocity_.y * moveUp.y);
-			velocity_ -= verticalVel;
-			velocity_ += moveUp * kJumpAcceleration;
-			onGround_ = false;
-			jumpCount++;
-		}
+	// --- 滞空エネルギーのリセット ---
+	if (onGround_) {
+		airHoverTimer_ = 0.0f;
 	}
-	velocity_ += gravityVector;
+
+	// --- ジャンプ・重力の適用 ---
+	bool isHovering = isMeleeAttacking_ && !onGround_ && (airHoverTimer_ < kMaxAirHoverDuration);
+
+	if (isHovering) {
+		// 垂直方向の速度を 0 に固定して位置を維持する
+		if (gravityVector.y != 0)
+			velocity_.y = 0.0f;
+		else if (gravityVector.x != 0)
+			velocity_.x = 0.0f;
+
+		// 滞空時間を蓄積
+		airHoverTimer_ += 1.0f / 60.0f;
+	}
+	// ★ポイント：ここから「else」の中にジャンプと通常の重力処理をまとめます
+	else {
+		// 1. ジャンプの処理 (既存のロジック)
+		if (onGround_)
+			jumpCount = 0;
+		else if (jumpCount == 0)
+			jumpCount = 1;
+
+		if (!isAttacking_ && !isMeleeAttacking_ && jumpCount < kMaxJumpCount) {
+			if (Input::GetInstance()->TriggerKey(DIK_SPACE) || Gamepad::GetInstance()->IsTriggered(XINPUT_GAMEPAD_A)) {
+				// ジャンプした瞬間に垂直方向の速度をリセットして初速を与える
+				Vector3 verticalVel = moveUp * (velocity_.x * moveUp.x + velocity_.y * moveUp.y);
+				velocity_ -= verticalVel;
+				velocity_ += moveUp * kJumpAcceleration;
+				onGround_ = false;
+				jumpCount++;
+			}
+		}
+
+		// 2. 通常の重力加算 (ここでのみ行う)
+		velocity_ += gravityVector;
+	}
+
+	// ★ 115行目にあった「velocity_ += gravityVector;」は削除してください！
 
 	// 最大落下速度制限 (既存)
 	float fallSpeed = -(velocity_.x * moveUp.x + velocity_.y * moveUp.y);
@@ -1141,6 +1167,7 @@ void Player::StartGoalAnimation() {
 	velocity_ = {0, 0, 0};
 
 	worldTransform_.scale_ = {1.0f, 1.0f, 1.0f};
+	worldTransform_.rotation_ = {0.0f, 0.0f, 0.0f};
 
 	// 現在のフェーズとタイマーをリセット
 	goalAnimationPhase_ = GoalAnimationPhase::kSpin;

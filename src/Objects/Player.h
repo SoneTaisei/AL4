@@ -118,7 +118,7 @@ private:
 	// 近接攻撃
 	bool isMeleeAttacking_ = false;
 	float meleeAttackTimer_ = 0.0f;
-	static inline const float kMeleeAttackDuration = 0.6f;
+	static inline const float kMeleeAttackDuration = 0.3f;
 	static inline const float kMeleeAttackRange = 3.0f;
 	static inline const float kMeleeAttackMoveDistance = 2.0f;
 
@@ -186,6 +186,9 @@ private:
 	KamataEngine::WorldTransform swordWorldTransform_;
 	// 攻撃時の体の傾き
 	float attackTilt_ = 0.0f;
+
+	float airHoverTimer_ = 0.0f;                           // 現在の滞空蓄積時間
+	static inline const float kMaxAirHoverDuration = 1.5f; // 最大滞空時間 (例: 1.5秒)
 
 	/// <summary>
 	/// 指定した角の座標を計算
