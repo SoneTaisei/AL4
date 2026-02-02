@@ -1167,6 +1167,7 @@ void Player::StartGoalAnimation() {
 	velocity_ = {0, 0, 0};
 
 	worldTransform_.scale_ = {1.0f, 1.0f, 1.0f};
+	worldTransform_.rotation_ = {0.0f, 0.0f, 0.0f};
 
 	// 現在のフェーズとタイマーをリセット
 	goalAnimationPhase_ = GoalAnimationPhase::kSpin;
