@@ -65,12 +65,19 @@ private:
 	KamataEngine::Model* particleModel_ = nullptr;
 	KamataEngine::Model* projectileModel_ = nullptr;
 	KamataEngine::Model* swordModel_ = nullptr;
+	KamataEngine::Model* clearModel_ = nullptr;
+	KamataEngine::WorldTransform clearWorldTransform_;
 
 	KamataEngine::WorldTransform worldTransform_;
 	KamataEngine::Camera camera_;
 	std::vector<std::vector<KamataEngine::WorldTransform*>> worldTransformBlocks_;
 	KamataEngine::DebugCamera* debugCamera_ = nullptr;
 	bool isDebugCameraActive_ = false;
+
+	// 色変更オブジェクト
+	KamataEngine::ObjectColor objectColorClear_;
+	// 色の数値
+	KamataEngine::Vector4 colorClear_;
 
 	Player* player_ = nullptr;
 	std::list<Enemy*> enemies_;
