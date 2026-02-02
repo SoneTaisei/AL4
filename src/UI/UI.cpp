@@ -87,7 +87,6 @@ void UI::HandlePauseInput(int& pauseMenuIndex, bool& outConfirm, bool& outCancel
 		if (in->TriggerKey(DIK_W) || in->TriggerKey(DIK_UP)) kbTriggeredUp = true;
 		if (in->TriggerKey(DIK_S) || in->TriggerKey(DIK_DOWN)) kbTriggeredDown = true;
 		if (in->TriggerKey(DIK_SPACE) || in->TriggerKey(DIK_RETURN)) kbTriggeredConfirm = true;
-		if (in->TriggerKey(DIK_ESCAPE)) kbTriggeredCancel = true;
 	}
 
 	// --- 3) トリガーが発生したら入力デバイスを永続切替（押された後も切り替えたまま） ---

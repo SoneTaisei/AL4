@@ -33,6 +33,8 @@ bool IsColliding(const AABB& aabb1, const AABB& aabb2) {
 }
 
 void GameScene::Reset() {
+
+	isPaused_ = false;
 	// --- 1. プレイヤーの再配置と初期化 ---
 	Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 9); // フォールバック
 
@@ -305,13 +307,32 @@ void GameScene::Update() {
 		else if (kbActive && lastInputIsGamepad_) lastInputIsGamepad_ = false;
 	}
 
-	// ポーズ切替（キーボード ESC または ゲームパッド START/BACK）
-	bool gpPause = Gamepad::GetInstance()->IsTriggered(XINPUT_GAMEPAD_START) || Gamepad::GetInstance()->IsTriggered(XINPUT_GAMEPAD_BACK);
-	if (Input::GetInstance()->TriggerKey(DIK_ESCAPE) || gpPause) {
+	// 1. ポーズのトグル判定 (現状のままでOK)
+	if (Input::GetInstance()->TriggerKey(DIK_ESCAPE) ) {
 		isPaused_ = !isPaused_;
-		if (!isPaused_) {
-			showControls_ = false;
+	}
+
+	// 2. ポーズ中の処理を独立させる
+	if (isPaused_) {
+		bool confirm = false;
+		bool cancel = false;
+		UI_->HandlePauseInput(pauseMenuIndex_, confirm, cancel);
+
+		if (confirm) {
+			if (pauseMenuIndex_ == 0) {
+				Reset();
+				isPaused_ = false;
+				return;
+			}
+			if (pauseMenuIndex_ == 1) {
+				finished_ = true;
+			}
 		}
+		if (cancel) {
+			isPaused_ = false;
+		}
+
+		return; // ポーズ中は以下のゲームロジック（フェーズ処理）をスキップ
 	}
 
 	// --- フェーズごとの処理 ---
