@@ -10,15 +10,15 @@
 #include "Objects/ShooterEnemy.h"
 #include "System/CameraController.h"
 #include "System/GameTime.h"
+#include "System/Gamepad.h"
 #include "System/MapChipField.h"
 #include "UI/UI.h"
+#include "Utils/Easing.h"
 #include "Utils/TransformUpdater.h"
 #include <Windows.h>
+#include <algorithm>
 #include <cstdio>
 #include <imgui.h>
-#include "Utils/Easing.h"
-#include "System/Gamepad.h"
-#include <algorithm>
 
 using namespace KamataEngine;
 
@@ -44,7 +44,7 @@ void GameScene::Reset() {
 	}
 
 	// プレイヤーの状態をリセット（Initialize済みのインスタンスを再設定）
-	player_->Initialize(playerModel_, playerTextureHandle_,swordModel_,swordTextureHandle_, &camera_, playerPosition);
+	player_->Initialize(playerModel_, playerTextureHandle_, swordModel_, swordTextureHandle_, &camera_, playerPosition);
 	player_->SetMapChipField(mapChipField_);
 
 	// --- 2. 敵の全削除と再生成 ---
@@ -186,6 +186,17 @@ void GameScene::Initialize(int stageNo) {
 	goalModel_ = Model::CreateFromOBJ("goal", true);
 	projectileModel_ = Model::CreateFromOBJ("ball", true);
 	swordModel_ = Model::CreateFromOBJ("sword", true);
+	// フォルダ名 "clearText" を指定（その中の clearText.obj が読み込まれます）
+	clearModel_ = Model::CreateFromOBJ("clearText", true);
+	objectColorClear_.Initialize();
+	colorClear_ = {3.0f, 3.0f, 0.0f, 1.0f};
+
+	// ロードに失敗していないかログを出すと確実です 🔍
+	if (!clearModel_) {
+		OutputDebugStringA("Error: clearModel_ のロードに失敗しました！パスを確認してください。\n");
+	}
+
+	clearWorldTransform_.Initialize();
 
 	jHandle_ = TextureManager::GetInstance()->Load("HUD/J.png");
 	spaceHandle_ = TextureManager::GetInstance()->Load("HUD/space.png");
@@ -257,12 +268,18 @@ void GameScene::Initialize(int stageNo) {
 	}
 
 	// コントローラ用スプライト生成
-	if (aHandle_) aSprite_ = Sprite::Create(aHandle_, {64, 600});
-	if (xHandle_) xSprite_ = Sprite::Create(xHandle_, {64, 600});
-	if (selectHandle_) selectSprite_ = Sprite::Create(selectHandle_, {64, 128});
-	if (aSprite_) aSprite_->SetSize({64,64});
-	if (xSprite_) xSprite_->SetSize({64,64});
-	if (selectSprite_) selectSprite_->SetSize({64,64});
+	if (aHandle_)
+		aSprite_ = Sprite::Create(aHandle_, {64, 600});
+	if (xHandle_)
+		xSprite_ = Sprite::Create(xHandle_, {64, 600});
+	if (selectHandle_)
+		selectSprite_ = Sprite::Create(selectHandle_, {64, 128});
+	if (aSprite_)
+		aSprite_->SetSize({64, 64});
+	if (xSprite_)
+		xSprite_->SetSize({64, 64});
+	if (selectSprite_)
+		selectSprite_->SetSize({64, 64});
 
 	// 初期入力はキーボードと見なす
 	lastInputIsGamepad_ = false;
@@ -286,10 +303,9 @@ void GameScene::Update() {
 		Gamepad* gp = Gamepad::GetInstance();
 		bool gpActive = false;
 		if (gp) {
-			gpActive = gp->IsPressed(XINPUT_GAMEPAD_A) || gp->IsPressed(XINPUT_GAMEPAD_B) || gp->IsPressed(XINPUT_GAMEPAD_X) || gp->IsPressed(XINPUT_GAMEPAD_Y) ||
-			           gp->IsPressed(XINPUT_GAMEPAD_BACK) || gp->IsPressed(XINPUT_GAMEPAD_START) ||
-			           gp->IsPressed(XINPUT_GAMEPAD_DPAD_UP) || gp->IsPressed(XINPUT_GAMEPAD_DPAD_DOWN) || gp->IsPressed(XINPUT_GAMEPAD_DPAD_LEFT) || gp->IsPressed(XINPUT_GAMEPAD_DPAD_RIGHT) ||
-			           std::abs(gp->GetLeftThumbXf()) > kGamepadStickThreshold || std::abs(gp->GetLeftThumbYf()) > kGamepadStickThreshold;
+			gpActive = gp->IsPressed(XINPUT_GAMEPAD_A) || gp->IsPressed(XINPUT_GAMEPAD_B) || gp->IsPressed(XINPUT_GAMEPAD_X) || gp->IsPressed(XINPUT_GAMEPAD_Y) || gp->IsPressed(XINPUT_GAMEPAD_BACK) ||
+			           gp->IsPressed(XINPUT_GAMEPAD_START) || gp->IsPressed(XINPUT_GAMEPAD_DPAD_UP) || gp->IsPressed(XINPUT_GAMEPAD_DPAD_DOWN) || gp->IsPressed(XINPUT_GAMEPAD_DPAD_LEFT) ||
+			           gp->IsPressed(XINPUT_GAMEPAD_DPAD_RIGHT) || std::abs(gp->GetLeftThumbXf()) > kGamepadStickThreshold || std::abs(gp->GetLeftThumbYf()) > kGamepadStickThreshold;
 		}
 		bool kbActive = false;
 		Input* in = Input::GetInstance();
@@ -303,12 +319,14 @@ void GameScene::Update() {
 			}
 		}
 		// 最近操作された方を優先
-		if (gpActive && !lastInputIsGamepad_) lastInputIsGamepad_ = true;
-		else if (kbActive && lastInputIsGamepad_) lastInputIsGamepad_ = false;
+		if (gpActive && !lastInputIsGamepad_)
+			lastInputIsGamepad_ = true;
+		else if (kbActive && lastInputIsGamepad_)
+			lastInputIsGamepad_ = false;
 	}
 
 	// 1. ポーズのトグル判定 (現状のままでOK)
-	if (Input::GetInstance()->TriggerKey(DIK_ESCAPE) ) {
+	if (Input::GetInstance()->TriggerKey(DIK_ESCAPE)) {
 		isPaused_ = !isPaused_;
 	}
 
@@ -453,6 +471,39 @@ void GameScene::Update() {
 	case Phase::kGoalAnimation:
 		// プレイヤーの演出更新（重力などは演出内で制御）
 		player_->UpdateGoalAnimation();
+
+		// --- クリアモデルの「奥から手前」演出更新 ---
+		{
+			// 演出の時間を 1.0秒 と定義
+			float animationDuration = 1.0f;
+			// 進捗率 0.0 ～ 1.0
+			float t = std::clamp(goalCameraTimer_ / animationDuration, 0.0f, 1.0f);
+
+			// ★ポイント1：EaseOutBack を使って「弾む」ような動きにする
+			float easedT = EaseOutBack(t);
+
+			Vector3 playerPos = player_->GetWorldPosition();
+
+			// ★ポイント2：スケールを 0.0 から 1.0 へ（飛び出す感）
+			clearWorldTransform_.scale_ = {easedT, easedT, easedT};
+
+			// ★ポイント3：Z軸の移動（奥から手前へ）
+			// プレイヤーの位置を 0 とすると、奥(10.0f) から 手前(-5.0f) くらいまで移動
+			float startZ = 10.0f;
+			float endZ = -5.0f;
+			float currentZ = playerPos.z + Lerp(startZ, endZ, easedT);
+
+			// 座標設定（Y座標はプレイヤーの少し上）
+			clearWorldTransform_.translation_ = {playerPos.x, playerPos.y + 1.0f, currentZ};
+
+			// 正面を向かせる
+			clearWorldTransform_.rotation_ = {0.0f, 0.0f, 0.0f};
+
+			// 行列更新
+			TransformUpdater::WorldTransformUpdate(clearWorldTransform_);
+			clearWorldTransform_.TransferMatrix();
+		}
+
 		// カメラを滑らかに近づける処理 (線形補間)
 		{
 			goalCameraTimer_ += 1.0f / 60.0f;
@@ -472,6 +523,7 @@ void GameScene::Update() {
 			// 必要に応じて高さ(Y)も調整したい場合はここに追加
 			// cameraController_->targetOffset.y = Lerp(0.0f, 2.0f, t);
 		}
+
 		// カメラはプレイヤーを追い続ける
 		cameraController_->Update();
 
@@ -551,6 +603,8 @@ void GameScene::Update() {
 	if (isPaused_) {
 		UI_->Update();
 	}
+
+	objectColorClear_.SetColor(colorClear_);
 }
 
 void GameScene::Draw() {
@@ -591,6 +645,14 @@ void GameScene::Draw() {
 	// 3Dモデル描画後処理
 	KamataEngine::Model::PostDraw();
 
+	KamataEngine::Model::PreDraw(dxCommon->GetCommandList());
+
+	if (phase_ == Phase::kGoalAnimation) {
+		clearModel_->Draw(clearWorldTransform_, camera_, &objectColorClear_);
+	}
+
+	KamataEngine::Model::PostDraw();
+
 	// フェード（黒い背景）を描画
 	fade_->Draw();
 
@@ -624,29 +686,29 @@ void GameScene::Draw() {
 		// コントローラ表示
 		// A (ジャンプ/決定)
 		if (Gamepad::GetInstance()->IsPressed(XINPUT_GAMEPAD_A)) {
-			aSprite_->SetColor({0.5f,0.5f,0.5f,1.0f});
+			aSprite_->SetColor({0.5f, 0.5f, 0.5f, 1.0f});
 		} else {
-			aSprite_->SetColor({1.0f,1.0f,1.0f,1.0f});
+			aSprite_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
 		}
-		aSprite_->SetPosition({64,600});
+		aSprite_->SetPosition({64, 600});
 		aSprite_->Draw();
 
 		// X (攻撃)
 		if (Gamepad::GetInstance()->IsPressed(XINPUT_GAMEPAD_X)) {
-			xSprite_->SetColor({0.5f,0.5f,0.5f,1.0f});
+			xSprite_->SetColor({0.5f, 0.5f, 0.5f, 1.0f});
 		} else {
-			xSprite_->SetColor({1.0f,1.0f,1.0f,1.0f});
+			xSprite_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
 		}
-		xSprite_->SetPosition({192,600});
+		xSprite_->SetPosition({192, 600});
 		xSprite_->Draw();
 
 		// START / SELECT 表示（select.png）
 		if (Gamepad::GetInstance()->IsPressed(XINPUT_GAMEPAD_START) || Gamepad::GetInstance()->IsPressed(XINPUT_GAMEPAD_BACK)) {
-			selectSprite_->SetColor({0.5f,0.5f,0.5f,1.0f});
+			selectSprite_->SetColor({0.5f, 0.5f, 0.5f, 1.0f});
 		} else {
-			selectSprite_->SetColor({1.0f,1.0f,1.0f,1.0f});
+			selectSprite_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
 		}
-		selectSprite_->SetPosition({64,128});
+		selectSprite_->SetPosition({64, 128});
 		selectSprite_->Draw();
 	}
 	Sprite::PostDraw();
@@ -676,7 +738,6 @@ void GameScene::GenerateBlocks() {
 		}
 	}
 }
-
 
 void GameScene::CheckAllCollisions() {
 	AABB aabb1, aabb2;
@@ -782,6 +843,7 @@ GameScene::~GameScene() {
 		}
 	}
 
+	delete clearModel_;
 	delete cubeModel_;
 	delete modelSkydome_;
 	delete playerModel_;
