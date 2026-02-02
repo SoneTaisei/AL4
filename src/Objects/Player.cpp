@@ -343,19 +343,17 @@ bool Player::MoveAndCollide(const KamataEngine::Vector3& move, const KamataEngin
 }
 
 void Player::UpdateVelocityByInput(const KamataEngine::Vector3& gravityVector) {
-
-	// 現在の重力方向から、プレイヤーにとっての「右」と「上」を計算する (これは新しい方式のまま)
+	// プレイヤーにとっての「右」と「上」を計算 (既存のロジックを維持)
 	Vector3 moveRight = {0, 0, 0};
 	Vector3 moveUp = {0, 0, 0};
-
-	if (gravityVector.y != 0) { // 重力がY軸方向
+	if (gravityVector.y != 0) {
 		moveRight = {1.0f, 0.0f, 0.0f};
 		moveUp = {0.0f, 1.0f, 0.0f};
 		if (gravityVector.y > 0) {
 			moveRight.x *= -1.0f;
 			moveUp.y *= -1.0f;
 		}
-	} else if (gravityVector.x != 0) { // 重力がX軸方向
+	} else if (gravityVector.x != 0) {
 		moveRight = {0.0f, -1.0f, 0.0f};
 		moveUp = {1.0f, 0.0f, 0.0f};
 		if (gravityVector.x > 0) {
@@ -364,102 +362,88 @@ void Player::UpdateVelocityByInput(const KamataEngine::Vector3& gravityVector) {
 		}
 	}
 
-	// --- 左右移動 ---
-	Vector3 acceleration = {};
+	// --- 1. 入力状態の取得 ---
 	bool gpRight = Gamepad::GetInstance()->IsPressed(XINPUT_GAMEPAD_DPAD_RIGHT) || Gamepad::GetInstance()->GetLeftThumbXf() > 0.3f;
 	bool gpLeft = Gamepad::GetInstance()->IsPressed(XINPUT_GAMEPAD_DPAD_LEFT) || Gamepad::GetInstance()->GetLeftThumbXf() < -0.3f;
+	bool pressRight = Input::GetInstance()->PushKey(DIK_D) || gpRight;
+	bool pressLeft = Input::GetInstance()->PushKey(DIK_A) || gpLeft;
 
-	if (!isAttacking_ && !isMeleeAttacking_ && (Input::GetInstance()->PushKey(DIK_D) || Input::GetInstance()->PushKey(DIK_A) || gpRight || gpLeft)) {
+	// --- 2. 水平移動の計算 ---
+	float currentRunSpeed = (velocity_.x * moveRight.x + velocity_.y * moveRight.y);
+	bool isMoving = false;
 
-		if (Input::GetInstance()->PushKey(DIK_D) || gpRight) {
-			acceleration = moveRight * kAcceleration;
-			// 逆入力でのブレーキ
-			float dot = velocity_.x * moveRight.x + velocity_.y * moveRight.y;
-			if (dot < 0.0f) {
-				velocity_ = velocity_ * (1.0f - kAttenuation);
-			}
-
-			// 向きを変える処理
+	if (!isAttacking_ && !isMeleeAttacking_) {
+		if (pressRight) {
+			// 右入力: 現在左に動いていたら「ブレーキ」として加速を強める
+			float accel = (currentRunSpeed < 0) ? kAcceleration * 2.0f : kAcceleration;
+			velocity_ += moveRight * accel;
+			isMoving = true;
 			if (lrDirection_ != LRDirection::kRight) {
 				lrDirection_ = LRDirection::kRight;
 				turnFirstRotationY_ = worldTransform_.rotation_.y;
-				turnTimer_ = kTimeTurn;
+				turnTimer_ = 0.0f;
 			}
-		} else if (Input::GetInstance()->PushKey(DIK_A) || gpLeft) {
-			acceleration = moveRight * -kAcceleration;
-			// 逆入力でのブレーキ
-			float dot = velocity_.x * moveRight.x + velocity_.y * moveRight.y;
-			if (dot > 0.0f) {
-				velocity_ = velocity_ * (1.0f - kAttenuation);
-			}
-
-			// 向きを変える処理
+		} else if (pressLeft) {
+			// 左入力: 現在右に動いていたら「ブレーキ」として加速を強める
+			float accel = (currentRunSpeed > 0) ? kAcceleration * 2.0f : kAcceleration;
+			velocity_ -= moveRight * accel;
+			isMoving = true;
 			if (lrDirection_ != LRDirection::kLeft) {
 				lrDirection_ = LRDirection::kLeft;
 				turnFirstRotationY_ = worldTransform_.rotation_.y;
-				turnTimer_ = kTimeTurn;
+				turnTimer_ = 0.0f;
 			}
 		}
-		velocity_ += acceleration;
-	} else {
-		// --- 摩擦による減速 ---
-		// プレイヤーの進行方向の速度だけを減速させる
+	}
+
+	// --- 3. 摩擦（減衰）処理 ---
+	if (!isMoving) {
+		// 入力がない場合
+		float friction = onGround_ ? kAttenuation * 3.0f : kAttenuation * 0.2f; // 地上は強く、空中は弱く
 		float dot = velocity_.x * moveRight.x + velocity_.y * moveRight.y;
 		Vector3 runVelocity = moveRight * dot;
 		Vector3 otherVelocity = velocity_ - runVelocity;
-		runVelocity = runVelocity * (1.0f - kAttenuation);
+
+		runVelocity = runVelocity * (1.0f - friction);
+
+		// デッドゾーン: 速度が小さくなったら完全に止める ✨
+		if (std::abs(dot) < 0.02f)
+			runVelocity = {0, 0, 0};
+
 		velocity_ = runVelocity + otherVelocity;
 	}
 
-	// --- 走行速度の制限 ---
-	// ダッシュ処理を追加
-
-	float currentSpeedLimit = kLimitRunSpeed;
-
-	float runSpeedDot = velocity_.x * moveRight.x + velocity_.y * moveRight.y;
-	Vector3 runVelocity = moveRight * runSpeedDot;
-	Vector3 otherVelocity = velocity_ - runVelocity;
-	float speed = sqrt(runVelocity.x * runVelocity.x + runVelocity.y * runVelocity.y);
-	if (speed > currentSpeedLimit) {
-		runVelocity = runVelocity / speed * currentSpeedLimit;
+	// --- 4. 最高速度制限 (既存の制限を適用) ---
+	float speed = sqrtf(powf(velocity_.x * moveRight.x + velocity_.y * moveRight.y, 2));
+	if (speed > kLimitRunSpeed) {
+		float dot = velocity_.x * moveRight.x + velocity_.y * moveRight.y;
+		Vector3 runVel = moveRight * (dot / speed * kLimitRunSpeed);
+		velocity_ = runVel + (velocity_ - moveRight * dot);
 	}
-	velocity_ = runVelocity + otherVelocity;
-	if (speed > currentSpeedLimit) {
-		runVelocity = runVelocity / speed * currentSpeedLimit;
-	}
-	velocity_ = runVelocity + otherVelocity;
 
-	if (onGround_) {
+	// --- 5. ジャンプ・重力 (既存のロジック) ---
+	if (onGround_)
 		jumpCount = 0;
-	} else {
-		if (jumpCount == 0) {
-			jumpCount = 1;
-		}
-	}
-	// --- ジャンプと重力 ---
+	else if (jumpCount == 0)
+		jumpCount = 1;
+
 	if (!isAttacking_ && !isMeleeAttacking_ && jumpCount < kMaxJumpCount) {
-		// キーボード SPACE または ゲームパッド A でジャンプ
-		bool gpJump = Gamepad::GetInstance()->IsTriggered(XINPUT_GAMEPAD_A);
-		if (Input::GetInstance()->TriggerKey(DIK_SPACE) || gpJump) {
-			velocity_.y = 0.0f;
+		if (Input::GetInstance()->TriggerKey(DIK_SPACE) || Gamepad::GetInstance()->IsTriggered(XINPUT_GAMEPAD_A)) {
+			// ジャンプした瞬間に上昇速度を上書き (重力をリセットしてキレを出す)
+			Vector3 verticalVel = moveUp * (velocity_.x * moveUp.x + velocity_.y * moveUp.y);
+			velocity_ -= verticalVel;
 			velocity_ += moveUp * kJumpAcceleration;
 			onGround_ = false;
 			jumpCount++;
 		}
 	}
-
-	// onGround_の如何に関わらず、常に重力を加算する
 	velocity_ += gravityVector;
 
-	// --- 最大落下速度の制限 ---
-	// 落下方向の速度を計算 (重力と逆方向が上なので、上方向との内積の逆が落下速度)
+	// 最大落下速度制限 (既存)
 	float fallSpeed = -(velocity_.x * moveUp.x + velocity_.y * moveUp.y);
 	if (fallSpeed > kLimitFallSpeed) {
-		// 落下方向の速度成分だけを制限値にクランプする
-		Vector3 fallVelocity = -moveUp * fallSpeed;
-		Vector3 sideVelocity = velocity_ - fallVelocity;
-		fallVelocity = -moveUp * kLimitFallSpeed;
-		velocity_ = sideVelocity + fallVelocity;
+		Vector3 fallVelocity = -moveUp * kLimitFallSpeed;
+		velocity_ = (velocity_ - (-moveUp * fallSpeed)) + fallVelocity;
 	}
 }
 
