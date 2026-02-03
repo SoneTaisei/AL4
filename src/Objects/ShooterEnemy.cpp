@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <numbers>
+#include "Scenes/SoundData.h"
 
 using namespace KamataEngine;
 
@@ -164,6 +165,11 @@ void ShooterEnemy::Update() {
 			// 回転フェーズ：Y軸回転のみ
 			worldTransform_.rotation_.y += kDeathSpinSpeed * GameTime::GetDeltaTime();
 		} else {
+			// 小さくなる瞬間のSE！
+			if (deathTimer_ < kDeathSpinDuration) {
+				uint32_t vHandle = KamataEngine::Audio::GetInstance()->PlayWave(SoundData::seEnemyDeath, false);
+				KamataEngine::Audio::GetInstance()->SetVolume(vHandle, 1.0f);
+			}
 			// 縮小フェーズ（回転は停止）
 			float shrinkElapsed = deathTimer_ - kDeathSpinDuration;
 			float t = std::clamp(shrinkElapsed / kDeathShrinkDuration, 0.0f, 1.0f);

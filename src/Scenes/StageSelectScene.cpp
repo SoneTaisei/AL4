@@ -5,6 +5,7 @@
 #include "System/Gamepad.h"
 #include "Utils/TransformUpdater.h" // WorldTransformの更新に必要
 #include <memory>
+#include "Scenes/SoundData.h"
 
 using namespace KamataEngine;
 
@@ -92,9 +93,18 @@ void StageSelectScene::Initialize() {
 
 	// 初期: コントローラ非アクティブ（キーボード表示）
 	gpActive_ = false;
+
+	auto audio = KamataEngine::Audio::GetInstance();
+
+	// ★重要：すでにBGMが鳴っていない場合（ゲームから戻った時など）のみ再生開始
+	// SoundData.h で定義したハンドルを使用します
+	if (!audio->IsPlaying(SoundData::bgmVoiceHandle)) {
+		SoundData::bgmVoiceHandle = audio->PlayWave(SoundData::bgmTitle, true,0.1f);
+	}
 }
 
 void StageSelectScene::Update() {
+	auto audio = KamataEngine::Audio::GetInstance();
 	switch (phase_) {
 	case Phase::kFadeIn:
 		// フェードイン処理
@@ -159,6 +169,10 @@ void StageSelectScene::Update() {
 			}
 		}
 
+		if (rightTriggered || leftTriggered) {
+			audio->PlayWave(SoundData::seMoveSelect, false);
+		}
+
 		// 行と列から最終的なステージ番号を計算
 		selectedStageIndex_ = cursorRow_ * 5 + cursorCol_;
 
@@ -166,6 +180,7 @@ void StageSelectScene::Update() {
 
 		// SPACEキー or A ボタン が押されたら選択
 		if (Input::GetInstance()->TriggerKey(DIK_SPACE) || (gp && gp->IsTriggered(XINPUT_GAMEPAD_A))) {
+			audio->PlayWave(SoundData::seSelect, false);
 			selectionTimer_ = 0;         // タイマーリセット
 			phase_ = Phase::kSelected;   // フェーズ移行
 			selectionJumpHeight_ = 0.0f; // 位置はリセット
@@ -374,4 +389,8 @@ StageSelectScene::~StageSelectScene() {
 	delete fade_;
 
 	// Sprite オブジェクトはエンジン側で管理される実装の可能性が高いため明示削除は行わない（GameScene の実装に合わせる）
+
+	if (!returnToTitle_) {
+		KamataEngine::Audio::GetInstance()->StopWave(SoundData::bgmVoiceHandle);
+	}
 }

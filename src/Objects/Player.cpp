@@ -10,6 +10,7 @@
 #include <array>
 #include <cmath>
 #include <numbers>
+#include "Scenes/SoundData.h"
 
 using namespace KamataEngine;
 
@@ -132,6 +133,8 @@ void Player::UpdateAttack(const KamataEngine::Vector3& gravityVector, KamataEngi
 				meleeAttackTimer_ = kMeleeAttackDuration;
 				velocity_.y = 0.0f;
 			}
+
+			KamataEngine::Audio::GetInstance()->PlayWave(SoundData::sePlayerAttack, false);
 		}
 	}
 }
@@ -289,6 +292,12 @@ bool Player::MoveAndCollide(const KamataEngine::Vector3& move, const KamataEngin
 				onGround_ = true;
 				velocity_.y = 0.0f;
 				collided = true;
+				// 空中から地面に着いた瞬間だけ鳴らす
+				if (!onGround_) {
+					// SoundData::seSelect などを流用、または着地用の音があればそれ
+					KamataEngine::Audio::GetInstance()->PlayWave(SoundData::seSelect, false);
+				}
+				onGround_ = true;
 			} else {
 				onGround_ = false;
 			}
@@ -456,6 +465,9 @@ void Player::UpdateVelocityByInput(const KamataEngine::Vector3& gravityVector) {
 				velocity_ += moveUp * kJumpAcceleration;
 				onGround_ = false;
 				jumpCount++;
+
+				// ジャンプSEを鳴らす 👟
+				KamataEngine::Audio::GetInstance()->PlayWave(SoundData::sePlayerJump, false);
 			}
 		}
 
@@ -801,6 +813,9 @@ void Player::OnCollision(const KamataEngine::WorldTransform& worldTransform) {
 	if (isInvincible_ || !isAlive_) {
 		return;
 	}
+
+	// ダメージ音
+	KamataEngine::Audio::GetInstance()->PlayWave(SoundData::sePlayerDamage, false);
 
 	// HPを減らす
 	hp_ -= kDamageFromEnemy;

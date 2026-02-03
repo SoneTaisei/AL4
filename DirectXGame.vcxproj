@@ -208,6 +208,7 @@
     <ClInclude Include="src\Utils\VectorMath.h" />
     <ClInclude Include="src\UI\UI.h" />
     <ClInclude Include="src\System\GameTime.h" />
+    <ClInclude Include="src\Scenes\SoundData.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Objects\ChasingEnemy.cpp" />
@@ -231,6 +232,7 @@
     <ClCompile Include="src\Utils\TransformUpdater.cpp" />
     <ClCompile Include="src\UI\UI.cpp" />
     <ClCompile Include="src\System\GameTime.cpp" />
+    <ClCompile Include="src\Scenes\SoundData.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
