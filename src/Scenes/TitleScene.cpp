@@ -12,6 +12,8 @@
 
 using namespace KamataEngine;
 
+#include "scenes/SoundData.h"
+
 // デストラクタの実装
 TitleScene::~TitleScene() {
 	delete modelTitle_;
@@ -21,10 +23,37 @@ TitleScene::~TitleScene() {
 	delete modelChasingEnemy_;
 	delete fade_;
 	delete skydome_;
+	if (SoundData::bgmVoiceHandle != 0) {
+		if (Audio::GetInstance()->IsPlaying(SoundData::bgmVoiceHandle)) {
+			Audio::GetInstance()->StopWave(SoundData::bgmVoiceHandle);
+		}
+		SoundData::bgmVoiceHandle = 0;
+	}
 }
 
 // 初期化処理
 void TitleScene::Initialize() {
+	auto audio = KamataEngine::Audio::GetInstance();
+
+	// BGMロード
+	SoundData::bgmTitle = audio->LoadWave("Sound/BGM/Title.wav");
+	//assert(SoundData::bgmTitle != 0);
+	SoundData::bgmGame = audio->LoadWave("Sound/BGM/Game.wav");
+
+	// SEロード（.mp3 も Load 関数で対応可能です）
+	SoundData::seClear = audio->LoadWave("Sound/SE/Clear.wav");
+	SoundData::seEnemyDeath = audio->LoadWave("Sound/SE/EnemyDeath.wav");
+	SoundData::seMoveSelect = audio->LoadWave("Sound/SE/MoveSelect.wav");
+	SoundData::sePlayerAttack = audio->LoadWave("Sound/SE/PlayerAttack.wav");
+	SoundData::sePlayerDamage = audio->LoadWave("Sound/SE/PlayerDamage.wav");
+	SoundData::sePlayerJump = audio->LoadWave("Sound/SE/PlayerJump.wav");
+	SoundData::seSelect = audio->LoadWave("Sound/SE/Select.wav");
+
+	// BGMを鳴らす
+	if (!audio->IsPlaying(SoundData::bgmVoiceHandle)) {
+		SoundData::bgmVoiceHandle = audio->PlayWave(SoundData::bgmTitle, true, 0.1f);
+	}
+
 	modelTitle_ = KamataEngine::Model::CreateFromOBJ("TitleName2");
 	modelPlayer_ = KamataEngine::Model::CreateFromOBJ("AL3_Player");
 	modelEnemy_ = KamataEngine::Model::CreateFromOBJ("AL3_Enemy");
@@ -184,6 +213,9 @@ void TitleScene::Update() {
 
 		// キーボード SPACE または ゲームパッド A で開始
 		if (Input::GetInstance()->TriggerKey(DIK_SPACE) || Gamepad::GetInstance()->IsTriggered(XINPUT_GAMEPAD_A)) {
+			// 決定音を鳴らす ✨
+			Audio::GetInstance()->PlayWave(SoundData::seSelect, false);
+
 			fade_->Start(Fade::Status::FadeOut, 1.0f);
 			phase_ = Phase::kFadeOut;
 		}

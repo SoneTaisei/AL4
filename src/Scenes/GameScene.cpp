@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <imgui.h>
 #include "StageData.h"
+#include "Scenes/SoundData.h"
 
 using namespace KamataEngine;
 
@@ -295,6 +296,10 @@ void GameScene::Initialize(int stageNo) {
 	// Resetではリトライ用に FadeIn になるが、
 	// ステージ開始時は「ステージ番号表示演出」を行いたいので上書きする
 	phase_ = Phase::kStageStart;
+
+	// BGMの再生開始 (ループフラグをtrueにする)
+	auto audio = Audio::GetInstance();
+	SoundData::bgmVoiceHandle = audio->PlayWave(SoundData::bgmGame, true,0.1f);
 }
 
 void GameScene::Update() {
@@ -878,4 +883,6 @@ GameScene::~GameScene() {
 	delete fade_;
 	delete HUD_;
 	delete UI_;
+
+	Audio::GetInstance()->StopWave(SoundData::bgmVoiceHandle);
 }

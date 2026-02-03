@@ -6,6 +6,7 @@
 #include <cmath>
 #include "Player.h"
 #include <algorithm>
+#include "Scenes/SoundData.h"
 
 using namespace KamataEngine;
 
@@ -43,6 +44,11 @@ void ChasingEnemy::Update() {
 		if (deathTimer_ < kDeathSpinDuration) {
 			worldTransform_.rotation_.y += kDeathSpinSpeed * dt;
 		} else {
+			// 小さくなる瞬間のSE！
+			if (deathTimer_ - dt < kDeathSpinDuration) {
+				uint32_t vHandle = KamataEngine::Audio::GetInstance()->PlayWave(SoundData::seEnemyDeath, false);
+				KamataEngine::Audio::GetInstance()->SetVolume(vHandle, 1.0f);
+			}
 			float shrinkElapsed = deathTimer_ - kDeathSpinDuration;
 			float t = std::clamp(shrinkElapsed / kDeathShrinkDuration, 0.0f, 1.0f);
 			float scale = (1.0f - t) * kInitialScale;
