@@ -119,7 +119,7 @@ private:
 	bool isMeleeAttacking_ = false;
 	float meleeAttackTimer_ = 0.0f;
 	static inline const float kMeleeAttackDuration = 0.3f;
-	static inline const float kMeleeAttackRange = 3.0f;
+	static inline const float kMeleeAttackRange = 5.0f;
 	static inline const float kMeleeAttackMoveDistance = 2.0f;
 
 	// マップチップによるフィールド
