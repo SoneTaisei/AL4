@@ -21,6 +21,13 @@ private:
 	KamataEngine::Model* skydomeModel_ = nullptr;
 	KamataEngine::Model* stageCubeModel_ = nullptr;
 	KamataEngine::Model* cursorModel_ = nullptr;
+	KamataEngine::Model* crownModel_ = nullptr;
+	KamataEngine::WorldTransform crownTransform_;
+
+	// 色変更オブジェクト
+	KamataEngine::ObjectColor objectColorCrown_;
+	// 色の数値
+	KamataEngine::Vector4 colorCrown_;
 
 	// --- 3Dオブジェクト ---
 	Skydome* skydome_ = nullptr;

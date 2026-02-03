@@ -1,9 +1,10 @@
 #include "StageSelectScene.h"
 #include "Effects/Fade.h"
-#include "Effects/Skydome.h"        // Skydomeクラスを使うために必要
+#include "Effects/Skydome.h" // Skydomeクラスを使うために必要
+#include "StageData.h"
+#include "System/Gamepad.h"
 #include "Utils/TransformUpdater.h" // WorldTransformの更新に必要
 #include <memory>
-#include "System/Gamepad.h"
 
 using namespace KamataEngine;
 
@@ -18,6 +19,12 @@ void StageSelectScene::Initialize() {
 	skydomeModel_ = Model::CreateFromOBJ("skydome", true);
 	stageCubeModel_ = Model::CreateFromOBJ("debugCube");
 	cursorModel_ = Model::CreateFromOBJ("AL3_Player"); // カーソルも同じモデルを流用
+	crownModel_ = Model::CreateFromOBJ("crown", true); // crown フォルダを用意
+	crownTransform_.Initialize();
+
+	objectColorCrown_.Initialize();
+	crownTransform_.scale_ = {2.0f, 2.0f, 2.0f};
+	colorCrown_ = {50.0f, 50.0f, 0.0f, 1.0f};
 
 	// 1. スカイドーム用のテクスチャを読み込む
 	uint32_t skydomeTexture = TextureManager::Load("skydome/AL_skysphere.png");
@@ -103,13 +110,10 @@ void StageSelectScene::Update() {
 		Gamepad* gp = Gamepad::GetInstance();
 		bool gpTriggered = false;
 		if (gp) {
-			gpTriggered =
-			    gp->IsTriggered(XINPUT_GAMEPAD_A) || gp->IsTriggered(XINPUT_GAMEPAD_B) || gp->IsTriggered(XINPUT_GAMEPAD_X) ||
-			    gp->IsTriggered(XINPUT_GAMEPAD_Y) || gp->IsTriggered(XINPUT_GAMEPAD_BACK) || gp->IsTriggered(XINPUT_GAMEPAD_START) ||
-			    gp->IsTriggered(XINPUT_GAMEPAD_DPAD_UP) || gp->IsTriggered(XINPUT_GAMEPAD_DPAD_DOWN) ||
-			    gp->IsTriggered(XINPUT_GAMEPAD_DPAD_LEFT) || gp->IsTriggered(XINPUT_GAMEPAD_DPAD_RIGHT) ||
-			    gp->IsLeftThumbRightTriggered(kStickThreshold) || gp->IsLeftThumbLeftTriggered(kStickThreshold) ||
-			    gp->IsLeftThumbUpTriggered(kStickThreshold) || gp->IsLeftThumbDownTriggered(kStickThreshold);
+			gpTriggered = gp->IsTriggered(XINPUT_GAMEPAD_A) || gp->IsTriggered(XINPUT_GAMEPAD_B) || gp->IsTriggered(XINPUT_GAMEPAD_X) || gp->IsTriggered(XINPUT_GAMEPAD_Y) ||
+			              gp->IsTriggered(XINPUT_GAMEPAD_BACK) || gp->IsTriggered(XINPUT_GAMEPAD_START) || gp->IsTriggered(XINPUT_GAMEPAD_DPAD_UP) || gp->IsTriggered(XINPUT_GAMEPAD_DPAD_DOWN) ||
+			              gp->IsTriggered(XINPUT_GAMEPAD_DPAD_LEFT) || gp->IsTriggered(XINPUT_GAMEPAD_DPAD_RIGHT) || gp->IsLeftThumbRightTriggered(kStickThreshold) ||
+			              gp->IsLeftThumbLeftTriggered(kStickThreshold) || gp->IsLeftThumbUpTriggered(kStickThreshold) || gp->IsLeftThumbDownTriggered(kStickThreshold);
 		}
 
 		bool kbTriggered = false;
@@ -137,14 +141,8 @@ void StageSelectScene::Update() {
 		bool stickLeftNow = leftX < -kStickThreshold;
 
 		// 入力判定（キーボード・DPadのトリガー、またはスティック立ち上がり）
-		bool rightTriggered =
-		    Input::GetInstance()->TriggerKey(DIK_D) ||
-		    (gp && gp->IsTriggered(XINPUT_GAMEPAD_DPAD_RIGHT)) ||
-		    (gp && (gp->IsLeftThumbRightTriggered(kStickThreshold)));
-		bool leftTriggered =
-		    Input::GetInstance()->TriggerKey(DIK_A) ||
-		    (gp && gp->IsTriggered(XINPUT_GAMEPAD_DPAD_LEFT)) ||
-		    (gp && (gp->IsLeftThumbLeftTriggered(kStickThreshold)));
+		bool rightTriggered = Input::GetInstance()->TriggerKey(DIK_D) || (gp && gp->IsTriggered(XINPUT_GAMEPAD_DPAD_RIGHT)) || (gp && (gp->IsLeftThumbRightTriggered(kStickThreshold)));
+		bool leftTriggered = Input::GetInstance()->TriggerKey(DIK_A) || (gp && gp->IsTriggered(XINPUT_GAMEPAD_DPAD_LEFT)) || (gp && (gp->IsLeftThumbLeftTriggered(kStickThreshold)));
 
 		// 右移動
 		if (rightTriggered) {
@@ -266,6 +264,23 @@ void StageSelectScene::Update() {
 
 	skydome_->Update();
 	camera_.UpdateMatrix();
+
+	// 王冠をプレイヤーの座標に合わせる
+	crownTransform_.translation_ = cursorTransform_->translation_;
+
+	// ★修正1：プレイヤーのスケールが3.0なので、高さをしっかり出す（4.5f 程度で調整）
+	crownTransform_.translation_.y += 2.5f;
+
+	// ★修正2：王冠のサイズもプレイヤーに合わせて大きくする
+	crownTransform_.scale_ = cursorTransform_->scale_ / 2.0f;
+
+	// 回転をプレイヤーと同期
+	crownTransform_.rotation_ = cursorTransform_->rotation_;
+
+	// 行列更新
+	TransformUpdater::WorldTransformUpdate(crownTransform_);
+	crownTransform_.TransferMatrix();
+	objectColorCrown_.SetColor(colorCrown_);
 }
 
 void StageSelectScene::Draw() {
@@ -290,6 +305,15 @@ void StageSelectScene::Draw() {
 
 		// 取得したTransformとテクスチャハンドルを使って描画
 		stageCubeModel_->Draw(*transform, camera_, textureHandle);
+
+		cursorModel_->Draw(*cursorTransform_, camera_);
+
+		// クリア済みなら王冠を描画
+		if (StageData::isCleared[selectedStageIndex_]) {
+			if (crownModel_) {
+				crownModel_->Draw(crownTransform_, camera_, &objectColorCrown_);
+			}
+		}
 		// 3Dモデル描画の終了
 		Model::PostDraw();
 	}
@@ -316,7 +340,7 @@ void StageSelectScene::Draw() {
 			} else {
 				selectSprite_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
 			}
-			selectSprite_->SetPosition({64,128});
+			selectSprite_->SetPosition({64, 128});
 			selectSprite_->Draw();
 		} else if (escSprite_) {
 			// キーボード用 esc 表示（既存）
@@ -325,7 +349,7 @@ void StageSelectScene::Draw() {
 			} else {
 				escSprite_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
 			}
-			escSprite_->SetPosition({64,128});
+			escSprite_->SetPosition({64, 128});
 			escSprite_->Draw();
 		}
 	}

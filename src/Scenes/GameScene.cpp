@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <imgui.h>
+#include "StageData.h"
 
 using namespace KamataEngine;
 
@@ -549,6 +550,11 @@ void GameScene::Update() {
 	case Phase::kFadeOut:
 		fade_->Update();
 		if (fade_->IsFinished()) {
+			// ★追加：シーン終了直前に、今のステージをクリア済みにする ✨
+			// currentStageNo_ は 1から始まるので、-1 して配列のインデックス(0～2)に合わせる
+			if (currentStageNo_ >= 1 && currentStageNo_ <= 3) {
+				StageData::isCleared[currentStageNo_ - 1] = true;
+			}
 			finished_ = true;
 		}
 		break;
